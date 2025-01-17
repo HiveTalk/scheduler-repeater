@@ -1,0 +1,19 @@
+[Unit]
+Description=HiveTalk Event Scheduler Timer
+After=network.target
+
+[Timer]
+# Run every minute
+OnCalendar=*:*:00
+
+# Add randomized delay to prevent exact-minute load spikes
+RandomizedDelaySec=5
+
+# Ensure timer starts even if we missed the last trigger time
+Persistent=true
+
+# Start immediately after boot, don't wait for first trigger
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=HiveTalk Event Scheduler Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=hivetalk
+Group=hivetalk
+WorkingDirectory=/opt/hivetalk/scheduler
+ExecStart=/usr/local/bin/30311_events
+# Give enough time for the parallel event processing
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target
