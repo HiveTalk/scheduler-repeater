@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 )
@@ -17,22 +17,22 @@ var defaultRelays = []string{"wss://honey.nostr1.com"}
 var hivetalkURL = getRequiredEnv("HIVETALK_URL")
 
 func getRequiredEnv(key string) string {
-  value := os.Getenv(key)
-  if value == "" {
-      log.Fatalf("Environment variable %s is required but not set", key)
-  }
-  return value
+	value := os.Getenv(key)
+	if value == "" {
+		log.Fatalf("Environment variable %s is required but not set", key)
+	}
+	return value
 }
 
 type Event struct {
-	ID          string    `json:"id"`           // Changed from int to string to handle UUID
+	ID          string    `json:"id"` // Changed from int to string to handle UUID
 	Name        string    `json:"name"`
 	StartTime   time.Time `json:"start_time"`
 	EndTime     time.Time `json:"end_time"`
 	RoomName    string    `json:"room_name"`
 	Identifier  string    `json:"identifier"`
 	Description string    `json:"description"`
-  Image       string    `json:"image"`
+	Image       string    `json:"image"`
 }
 
 type RoomInfo struct {
@@ -41,50 +41,49 @@ type RoomInfo struct {
 	RoomRelayURL *string `json:"room_relay_url"`
 }
 
-func getSupabaseConnection() (*pgx.Conn, error) {
+func getSupabaseConnection() (*pgxpool.Pool, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL environment variable not set")
 	}
 
 	// Parse the connection string to modify it
-	connConfig, err := pgx.ParseConfig(dbURL)
+	connConfig, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse connection string: %v", err)
 	}
 
-	// Add SSL mode and other required settings for transaction pooler
-	if connConfig.Config.TLSConfig == nil {
-		connConfig.Config.TLSConfig = &tls.Config{
+	// Add SSL mode and other required settings
+	if connConfig.ConnConfig.TLSConfig == nil {
+		connConfig.ConnConfig.TLSConfig = &tls.Config{
 			InsecureSkipVerify: false,
-			MinVersion:       tls.VersionTLS12,
+			MinVersion:         tls.VersionTLS12,
 		}
 	}
 
-	// Disable prepared statement caching for transaction pooler
-	connConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
-
-	// Transaction pooler requires these runtime parameters
-	connConfig.RuntimeParams["statement_timeout"] = "0"
-	connConfig.RuntimeParams["idle_in_transaction_session_timeout"] = "15000" // 15 seconds
+	// Set pool configuration
+	connConfig.MaxConns = 4
+	connConfig.MinConns = 1
+	connConfig.MaxConnLifetime = time.Hour
+	connConfig.MaxConnIdleTime = 30 * time.Minute
 
 	// Set shorter timeout for pooled connections
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Try to connect using transaction pooler
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	// Create the connection pool
+	pool, err := pgxpool.NewWithConfig(ctx, connConfig)
 	if err != nil {
-		return nil, fmt.Errorf("connection failed: %v", err)
+		return nil, fmt.Errorf("failed to create connection pool: %v", err)
 	}
 
-	// Test the connection
-	if err := conn.Ping(ctx); err != nil {
-		conn.Close(context.Background())
-		return nil, fmt.Errorf("connection test failed: %v", err)
+	// Test the pool
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("connection pool test failed: %v", err)
 	}
 
-	return conn, nil
+	return pool, nil
 }
 
 func updateNip53(eventData Event, pubkey string, status string) (*nostr.Event, error) {
@@ -97,16 +96,16 @@ func updateNip53(eventData Event, pubkey string, status string) (*nostr.Event, e
 		{"starts", fmt.Sprintf("%d", startTime)},
 		{"ends", fmt.Sprintf("%d", endTime)},
 		{"status", status},
-    {"streaming", hivetalkURL + "/join/" + eventData.RoomName},
-    {"t", "nostr"},
-    {"t", "hivetalk"},
-    {"t", "livestream"},
+		{"streaming", hivetalkURL + "/join/" + eventData.RoomName},
+		{"t", "nostr"},
+		{"t", "hivetalk"},
+		{"t", "livestream"},
 	}
 
 	if eventData.Description != "" {
 		tags = append(tags, nostr.Tag{"description", eventData.Description})
 	}
-  if eventData.Image != "" {
+	if eventData.Image != "" {
 		tags = append(tags, nostr.Tag{"image", eventData.Image})
 	}
 
@@ -123,7 +122,7 @@ func updateNip53(eventData Event, pubkey string, status string) (*nostr.Event, e
 
 func sendLiveEvent(event *nostr.Event, relays []string) error {
 	ctx := context.Background()
-	
+
 	for _, url := range relays {
 		relay, err := nostr.RelayConnect(ctx, url)
 		if err != nil {
@@ -141,7 +140,7 @@ func sendLiveEvent(event *nostr.Event, relays []string) error {
 			relay.Close()
 			continue
 		}
-		
+
 		cancel()
 		relay.Close()
 	}
@@ -153,7 +152,7 @@ func sendNewEvent(payload Event, status string) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
-	defer conn.Close(context.Background())
+	defer conn.Close()
 
 	var roomInfo RoomInfo
 	err = conn.QueryRow(context.Background(),
