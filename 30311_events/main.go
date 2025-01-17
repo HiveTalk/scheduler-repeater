@@ -103,9 +103,9 @@ func fetchUpcomingEvents() error {
 
 	// Show events specifically in our time window
 	timeWindowRows, err := pool.Query(context.Background(), `
-		SELECT COUNT(*) 
-		FROM events 
-		WHERE start_time >= $1 
+		SELECT COUNT(*)
+		FROM events
+		WHERE start_time >= $1
 		AND start_time <= $2`, timeMin, timeMax)
 	if err != nil {
 		log.Printf("Time window count query failed: %v", err)
@@ -127,6 +127,33 @@ func fetchUpcomingEvents() error {
 	// Fetch and process starting events in batches
 	g.Go(func() error {
 		var startingEvents []Event
+		// First, let's check what events exist in our time window without any status filter
+		debugQuery := `
+			SELECT id, name, start_time, end_time, status
+			FROM events 
+			WHERE start_time >= $1 
+			AND start_time <= $2`
+
+		debugRows, err := pool.Query(ctx, debugQuery, timeMin, timeMax)
+		if err != nil {
+			log.Printf("Debug query failed: %v", err)
+		} else {
+			defer debugRows.Close()
+			log.Printf("\n=== Events in time window (before status filter) ===")
+			for debugRows.Next() {
+				var id, name string
+				var startTime, endTime time.Time
+				var status *string
+				if err := debugRows.Scan(&id, &name, &startTime, &endTime, &status); err != nil {
+					log.Printf("Error scanning debug row: %v", err)
+					continue
+				}
+				log.Printf("Found event: ID=%s, Name=%s, StartTime=%v, Status=%v",
+					id, name, startTime.Format(time.RFC3339), stringPtrValue(status))
+			}
+		}
+
+		// Now run the actual query
 		query := `
 			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status
 			FROM events 
@@ -134,8 +161,9 @@ func fetchUpcomingEvents() error {
 			AND start_time <= $2 
 			AND (status IS NULL OR status NOT IN ('live:sent', 'ended:sent'))`
 
-		log.Printf("Running starting events query")
-		// %s with params: %v, %v", query, timeMin, timeMax)
+		log.Printf("\nRunning starting events query with time window: %v to %v",
+			timeMin.Format(time.RFC3339),
+			timeMax.Format(time.RFC3339))
 
 		rows, err := pool.Query(ctx, query, timeMin, timeMax)
 		if err != nil {
@@ -160,6 +188,8 @@ func fetchUpcomingEvents() error {
 				continue
 			}
 			startingEvents = append(startingEvents, event)
+			log.Printf("Added event to startingEvents: ID=%s, Name=%s, StartTime=%v, Status=%v",
+				event.ID, event.Name, event.StartTime.Format(time.RFC3339), stringPtrValue(event.Status))
 		}
 
 		if err = rows.Err(); err != nil {
@@ -192,6 +222,33 @@ func fetchUpcomingEvents() error {
 	// Fetch and process ending events in batches
 	g.Go(func() error {
 		var endingEvents []Event
+		// First, let's check what events exist in our time window without any status filter
+		debugQuery := `
+			SELECT id, name, start_time, end_time, status
+			FROM events 
+			WHERE end_time >= $1 
+			AND end_time <= $2`
+
+		debugRows, err := pool.Query(ctx, debugQuery, timeMin, timeMax)
+		if err != nil {
+			log.Printf("Debug query failed: %v", err)
+		} else {
+			defer debugRows.Close()
+			log.Printf("\n=== Events in time window (before status filter) ===")
+			for debugRows.Next() {
+				var id, name string
+				var startTime, endTime time.Time
+				var status *string
+				if err := debugRows.Scan(&id, &name, &startTime, &endTime, &status); err != nil {
+					log.Printf("Error scanning debug row: %v", err)
+					continue
+				}
+				log.Printf("Found event: ID=%s, Name=%s, StartTime=%v, Status=%v",
+					id, name, startTime.Format(time.RFC3339), stringPtrValue(status))
+			}
+		}
+
+		// Now run the actual query
 		query := `
 			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status
 			FROM events 
@@ -199,8 +256,9 @@ func fetchUpcomingEvents() error {
 			AND end_time <= $2 
 			AND (status IS NULL OR status NOT IN ('live:sent', 'ended:sent'))`
 
-		log.Printf("Running ending events query")
-		// %s with params: %v, %v", query, timeMin, timeMax)
+		log.Printf("\nRunning ending events query with time window: %v to %v",
+			timeMin.Format(time.RFC3339),
+			timeMax.Format(time.RFC3339))
 
 		rows, err := pool.Query(ctx, query, timeMin, timeMax)
 		if err != nil {
@@ -225,6 +283,8 @@ func fetchUpcomingEvents() error {
 				continue
 			}
 			endingEvents = append(endingEvents, event)
+			log.Printf("Added event to endingEvents: ID=%s, Name=%s, EndTime=%v, Status=%v",
+				event.ID, event.Name, event.EndTime.Format(time.RFC3339), stringPtrValue(event.Status))
 		}
 
 		if err = rows.Err(); err != nil {
