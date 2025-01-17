@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -71,87 +73,14 @@ func fetchUpcomingEvents() error {
 
 	log.Printf("Checking for events between %v and %v", timeMin.Format(time.RFC3339), timeMax.Format(time.RFC3339))
 
-	// Diagnostic query to check ALL events in the database
-	// rows, err := pool.Query(context.Background(), `
-	// 	SELECT
-	// 		id,
-	// 		name,
-	// 		start_time,
-	// 		end_time,
-	// 		status,
-	// 		room_name,
-	// 		identifier,
-	// 		description,
-	// 		image_url
-	// 	FROM events
-	// 	ORDER BY start_time DESC
-	// 	LIMIT 5`)
-	// if err != nil {
-	// 	log.Printf("Diagnostic query failed: %v", err)
-	// } else {
-	// 	defer rows.Close()
-	// }
-
-	// Also check if we can count total events
-	// var count int
-	// err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM events").Scan(&count)
-	// if err != nil {
-	// 	log.Printf("Error counting events: %v", err)
-	// } else {
-	// 	log.Printf("\nTotal events in database: %d", count)
-	// }
-
-	// Show events specifically in our time window
-	timeWindowRows, err := pool.Query(context.Background(), `
-		SELECT COUNT(*)
-		FROM events
-		WHERE start_time >= $1
-		AND start_time <= $2`, timeMin, timeMax)
-	if err != nil {
-		log.Printf("Time window count query failed: %v", err)
-	} else {
-		defer timeWindowRows.Close()
-		if timeWindowRows.Next() {
-			var windowCount int
-			if err := timeWindowRows.Scan(&windowCount); err != nil {
-				log.Printf("Error scanning time window count: %v", err)
-			} else {
-				log.Printf("\nEvents in current time window: %d", windowCount)
-			}
-		}
-	}
-
 	// Create error group for parallel batch processing
 	g, ctx := errgroup.WithContext(context.Background())
 
 	// Fetch and process starting events in batches
 	g.Go(func() error {
 		var startingEvents []Event
-		// First, let's check what events exist in our time window without any status filter
-		debugQuery := `
-			SELECT id, name, start_time, end_time, status
-			FROM events 
-			WHERE start_time >= $1 
-			AND start_time <= $2`
 
-		debugRows, err := pool.Query(ctx, debugQuery, timeMin, timeMax)
-		if err != nil {
-			log.Printf("Debug query failed: %v", err)
-		} else {
-			defer debugRows.Close()
-			log.Printf("\n=== Events in time window (before status filter) ===")
-			for debugRows.Next() {
-				var id, name string
-				var startTime, endTime time.Time
-				var status *string
-				if err := debugRows.Scan(&id, &name, &startTime, &endTime, &status); err != nil {
-					log.Printf("Error scanning debug row: %v", err)
-					continue
-				}
-				log.Printf("Found event: ID=%s, Name=%s, StartTime=%v, Status=%v",
-					id, name, startTime.Format(time.RFC3339), stringPtrValue(status))
-			}
-		}
+		debugEventsInTimeWindow(ctx, pool, timeMin, timeMax, "starting")
 
 		// Now run the actual query
 		query := `
@@ -188,8 +117,7 @@ func fetchUpcomingEvents() error {
 				continue
 			}
 			startingEvents = append(startingEvents, event)
-			log.Printf("Added event to startingEvents: ID=%s, Name=%s, StartTime=%v, Status=%v",
-				event.ID, event.Name, event.StartTime.Format(time.RFC3339), stringPtrValue(event.Status))
+			logEventProcessing(event, "starting")
 		}
 
 		if err = rows.Err(); err != nil {
@@ -197,10 +125,6 @@ func fetchUpcomingEvents() error {
 		}
 
 		log.Printf("Found %d starting events", len(startingEvents))
-		for _, e := range startingEvents {
-			log.Printf("Starting event: ID=%s, Name=%s, Room=%v, StartTime=%v, Status=%v",
-				e.ID, e.Name, stringPtrValue(e.RoomName), e.StartTime.Format(time.RFC3339), stringPtrValue(e.Status))
-		}
 
 		// Process starting events in batches
 		for i := 0; i < len(startingEvents); i += batchSize {
@@ -222,31 +146,8 @@ func fetchUpcomingEvents() error {
 	// Fetch and process ending events in batches
 	g.Go(func() error {
 		var endingEvents []Event
-		// First, let's check what events exist in our time window without any status filter
-		debugQuery := `
-			SELECT id, name, start_time, end_time, status
-			FROM events 
-			WHERE end_time >= $1 
-			AND end_time <= $2`
 
-		debugRows, err := pool.Query(ctx, debugQuery, timeMin, timeMax)
-		if err != nil {
-			log.Printf("Debug query failed: %v", err)
-		} else {
-			defer debugRows.Close()
-			log.Printf("\n=== Events in time window (before status filter) ===")
-			for debugRows.Next() {
-				var id, name string
-				var startTime, endTime time.Time
-				var status *string
-				if err := debugRows.Scan(&id, &name, &startTime, &endTime, &status); err != nil {
-					log.Printf("Error scanning debug row: %v", err)
-					continue
-				}
-				log.Printf("Found event: ID=%s, Name=%s, StartTime=%v, Status=%v",
-					id, name, startTime.Format(time.RFC3339), stringPtrValue(status))
-			}
-		}
+		debugEventsInTimeWindow(ctx, pool, timeMin, timeMax, "ending")
 
 		// Now run the actual query
 		query := `
@@ -283,8 +184,7 @@ func fetchUpcomingEvents() error {
 				continue
 			}
 			endingEvents = append(endingEvents, event)
-			log.Printf("Added event to endingEvents: ID=%s, Name=%s, EndTime=%v, Status=%v",
-				event.ID, event.Name, event.EndTime.Format(time.RFC3339), stringPtrValue(event.Status))
+			logEventProcessing(event, "ending")
 		}
 
 		if err = rows.Err(); err != nil {
@@ -292,10 +192,6 @@ func fetchUpcomingEvents() error {
 		}
 
 		log.Printf("Found %d ending events", len(endingEvents))
-		for _, e := range endingEvents {
-			log.Printf("Ending event: ID=%s, Name=%s, Room=%v, EndTime=%v, Status=%v",
-				e.ID, e.Name, stringPtrValue(e.RoomName), e.EndTime.Format(time.RFC3339), stringPtrValue(e.Status))
-		}
 
 		// Process ending events in batches
 		for i := 0; i < len(endingEvents); i += batchSize {
@@ -333,4 +229,58 @@ func stringPtrValue(s *string) string {
 		return "<nil>"
 	}
 	return *s
+}
+
+// Debug helper functions
+func debugEventsInTimeWindow(ctx context.Context, pool *pgxpool.Pool, timeMin, timeMax time.Time, eventType string) {
+	debugQuery := `
+		SELECT id, name, start_time, end_time, status
+		FROM events 
+		WHERE %s >= $1 
+		AND %s <= $2`
+
+	// Format query based on event type
+	timeField := "start_time"
+	if eventType == "ending" {
+		timeField = "end_time"
+	}
+	debugQuery = fmt.Sprintf(debugQuery, timeField, timeField)
+
+	debugRows, err := pool.Query(ctx, debugQuery, timeMin, timeMax)
+	if err != nil {
+		log.Printf("Debug query failed: %v", err)
+		return
+	}
+	defer debugRows.Close()
+
+	log.Printf("\n=== %s Events in time window (before status filter) ===", strings.Title(eventType))
+	for debugRows.Next() {
+		var id, name string
+		var startTime, endTime time.Time
+		var status *string
+		if err := debugRows.Scan(&id, &name, &startTime, &endTime, &status); err != nil {
+			log.Printf("Error scanning debug row: %v", err)
+			continue
+		}
+		log.Printf("Found event: ID=%s, Name=%s, StartTime=%v, Status=%v",
+			id, name, startTime.Format(time.RFC3339), stringPtrValue(status))
+	}
+}
+
+func logEventProcessing(event Event, eventType string) {
+	if eventType == "starting" {
+		log.Printf("Added %s event: ID=%s, Name=%s, StartTime=%v, Status=%v",
+			eventType,
+			event.ID,
+			event.Name,
+			event.StartTime.Format(time.RFC3339),
+			stringPtrValue(event.Status))
+	} else {
+		log.Printf("Added %s event: ID=%s, Name=%s, EndTime=%v, Status=%v",
+			eventType,
+			event.ID,
+			event.Name,
+			event.EndTime.Format(time.RFC3339),
+			stringPtrValue(event.Status))
+	}
 }
