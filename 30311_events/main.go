@@ -69,7 +69,57 @@ func fetchUpcomingEvents() error {
 	timeMin := currentTime.Add(-time.Duration(twoMinutesMs) * time.Millisecond)
 	timeMax := currentTime.Add(time.Duration(twoMinutesMs) * time.Millisecond)
 
-	log.Printf("Checking for events between %v and %v", timeMin, timeMax)
+	log.Printf("Checking for events between %v and %v", timeMin.Format(time.RFC3339), timeMax.Format(time.RFC3339))
+
+	// Diagnostic query to check ALL events in the database
+	// rows, err := pool.Query(context.Background(), `
+	// 	SELECT
+	// 		id,
+	// 		name,
+	// 		start_time,
+	// 		end_time,
+	// 		status,
+	// 		room_name,
+	// 		identifier,
+	// 		description,
+	// 		image_url
+	// 	FROM events
+	// 	ORDER BY start_time DESC
+	// 	LIMIT 5`)
+	// if err != nil {
+	// 	log.Printf("Diagnostic query failed: %v", err)
+	// } else {
+	// 	defer rows.Close()
+	// }
+
+	// Also check if we can count total events
+	// var count int
+	// err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM events").Scan(&count)
+	// if err != nil {
+	// 	log.Printf("Error counting events: %v", err)
+	// } else {
+	// 	log.Printf("\nTotal events in database: %d", count)
+	// }
+
+	// Show events specifically in our time window
+	timeWindowRows, err := pool.Query(context.Background(), `
+		SELECT COUNT(*) 
+		FROM events 
+		WHERE start_time >= $1 
+		AND start_time <= $2`, timeMin, timeMax)
+	if err != nil {
+		log.Printf("Time window count query failed: %v", err)
+	} else {
+		defer timeWindowRows.Close()
+		if timeWindowRows.Next() {
+			var windowCount int
+			if err := timeWindowRows.Scan(&windowCount); err != nil {
+				log.Printf("Error scanning time window count: %v", err)
+			} else {
+				log.Printf("\nEvents in current time window: %d", windowCount)
+			}
+		}
+	}
 
 	// Create error group for parallel batch processing
 	g, ctx := errgroup.WithContext(context.Background())
@@ -77,29 +127,50 @@ func fetchUpcomingEvents() error {
 	// Fetch and process starting events in batches
 	g.Go(func() error {
 		var startingEvents []Event
-		rows, err := pool.Query(ctx,
-			`SELECT id, name, start_time, end_time, room_name, identifier, description, image_url
+		query := `
+			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status
 			FROM events 
 			WHERE start_time >= $1 
 			AND start_time <= $2 
-			AND status != 'live:sent'`,
-			timeMin, timeMax)
+			AND (status IS NULL OR status NOT IN ('live:sent', 'ended:sent'))`
+
+		log.Printf("Running starting events query")
+		// %s with params: %v, %v", query, timeMin, timeMax)
+
+		rows, err := pool.Query(ctx, query, timeMin, timeMax)
 		if err != nil {
-			return err
+			return fmt.Errorf("starting events query failed: %v", err)
 		}
 		defer rows.Close()
 
 		for rows.Next() {
 			var event Event
-			if err := rows.Scan(&event.ID, &event.Name, &event.StartTime, &event.EndTime,
-				&event.RoomName, &event.Identifier, &event.Description, &event.Image); err != nil {
+			if err := rows.Scan(
+				&event.ID,
+				&event.Name,
+				&event.StartTime,
+				&event.EndTime,
+				&event.RoomName,
+				&event.Identifier,
+				&event.Description,
+				&event.Image,
+				&event.Status,
+			); err != nil {
 				log.Printf("Error scanning starting event: %v", err)
 				continue
 			}
 			startingEvents = append(startingEvents, event)
 		}
 
+		if err = rows.Err(); err != nil {
+			log.Printf("Error iterating starting events: %v", err)
+		}
+
 		log.Printf("Found %d starting events", len(startingEvents))
+		for _, e := range startingEvents {
+			log.Printf("Starting event: ID=%s, Name=%s, Room=%v, StartTime=%v, Status=%v",
+				e.ID, e.Name, stringPtrValue(e.RoomName), e.StartTime.Format(time.RFC3339), stringPtrValue(e.Status))
+		}
 
 		// Process starting events in batches
 		for i := 0; i < len(startingEvents); i += batchSize {
@@ -121,29 +192,50 @@ func fetchUpcomingEvents() error {
 	// Fetch and process ending events in batches
 	g.Go(func() error {
 		var endingEvents []Event
-		rows, err := pool.Query(ctx,
-			`SELECT id, name, start_time, end_time, room_name, identifier, description, image_url
+		query := `
+			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status
 			FROM events 
 			WHERE end_time >= $1 
 			AND end_time <= $2 
-			AND status != 'ended:sent'`,
-			timeMin, timeMax)
+			AND (status IS NULL OR status NOT IN ('live:sent', 'ended:sent'))`
+
+		log.Printf("Running ending events query")
+		// %s with params: %v, %v", query, timeMin, timeMax)
+
+		rows, err := pool.Query(ctx, query, timeMin, timeMax)
 		if err != nil {
-			return err
+			return fmt.Errorf("ending events query failed: %v", err)
 		}
 		defer rows.Close()
 
 		for rows.Next() {
 			var event Event
-			if err := rows.Scan(&event.ID, &event.Name, &event.StartTime, &event.EndTime,
-				&event.RoomName, &event.Identifier, &event.Description, &event.Image); err != nil {
+			if err := rows.Scan(
+				&event.ID,
+				&event.Name,
+				&event.StartTime,
+				&event.EndTime,
+				&event.RoomName,
+				&event.Identifier,
+				&event.Description,
+				&event.Image,
+				&event.Status,
+			); err != nil {
 				log.Printf("Error scanning ending event: %v", err)
 				continue
 			}
 			endingEvents = append(endingEvents, event)
 		}
 
+		if err = rows.Err(); err != nil {
+			log.Printf("Error iterating ending events: %v", err)
+		}
+
 		log.Printf("Found %d ending events", len(endingEvents))
+		for _, e := range endingEvents {
+			log.Printf("Ending event: ID=%s, Name=%s, Room=%v, EndTime=%v, Status=%v",
+				e.ID, e.Name, stringPtrValue(e.RoomName), e.EndTime.Format(time.RFC3339), stringPtrValue(e.Status))
+		}
 
 		// Process ending events in batches
 		for i := 0; i < len(endingEvents); i += batchSize {
@@ -174,4 +266,11 @@ func main() {
 	if err := fetchUpcomingEvents(); err != nil {
 		log.Fatalf("Error fetching upcoming events: %v", err)
 	}
+}
+
+func stringPtrValue(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }

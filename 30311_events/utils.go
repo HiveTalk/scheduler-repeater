@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
@@ -29,10 +30,47 @@ type Event struct {
 	Name        string    `json:"name"`
 	StartTime   time.Time `json:"start_time"`
 	EndTime     time.Time `json:"end_time"`
-	RoomName    string    `json:"room_name"`
-	Identifier  string    `json:"identifier"`
-	Description string    `json:"description"`
-	Image       string    `json:"image"`
+	RoomName    *string   `json:"room_name"`   // Nullable
+	Identifier  *string   `json:"identifier"`  // Nullable
+	Description *string   `json:"description"` // Nullable
+	Image       *string   `json:"image"`       // Nullable
+	Status      *string   `json:"status"`      // Nullable
+}
+
+// Helper functions for Event struct
+func (e *Event) GetIdentifier() string {
+	if e.Identifier == nil {
+		return ""
+	}
+	return *e.Identifier
+}
+
+func (e *Event) GetRoomName() string {
+	if e.RoomName == nil {
+		return ""
+	}
+	return *e.RoomName
+}
+
+func (e *Event) GetDescription() string {
+	if e.Description == nil {
+		return ""
+	}
+	return *e.Description
+}
+
+func (e *Event) GetImage() string {
+	if e.Image == nil {
+		return ""
+	}
+	return *e.Image
+}
+
+func (e *Event) GetStatus() string {
+	if e.Status == nil {
+		return ""
+	}
+	return *e.Status
 }
 
 type RoomInfo struct {
@@ -60,6 +98,9 @@ func getSupabaseConnection() (*pgxpool.Pool, error) {
 			MinVersion:         tls.VersionTLS12,
 		}
 	}
+
+	// Disable prepared statement cache to avoid conflicts
+	connConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	// Set pool configuration
 	connConfig.MaxConns = 4
@@ -91,22 +132,22 @@ func updateNip53(eventData Event, pubkey string, status string) (*nostr.Event, e
 	endTime := eventData.EndTime.Unix()
 
 	tags := nostr.Tags{
-		{"d", eventData.Identifier},
+		{"d", eventData.GetIdentifier()},
 		{"title", eventData.Name},
 		{"starts", fmt.Sprintf("%d", startTime)},
 		{"ends", fmt.Sprintf("%d", endTime)},
 		{"status", status},
-		{"streaming", hivetalkURL + "/join/" + eventData.RoomName},
+		{"streaming", hivetalkURL + "/join/" + eventData.GetRoomName()},
 		{"t", "nostr"},
 		{"t", "hivetalk"},
 		{"t", "livestream"},
 	}
 
-	if eventData.Description != "" {
-		tags = append(tags, nostr.Tag{"description", eventData.Description})
+	if eventData.GetDescription() != "" {
+		tags = append(tags, nostr.Tag{"description", eventData.GetDescription()})
 	}
-	if eventData.Image != "" {
-		tags = append(tags, nostr.Tag{"image", eventData.Image})
+	if eventData.GetImage() != "" {
+		tags = append(tags, nostr.Tag{"image", eventData.GetImage()})
 	}
 
 	event := &nostr.Event{
