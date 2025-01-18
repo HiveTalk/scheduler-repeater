@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip19"
 )
 
 type DiscordWebhookMessage struct {
@@ -30,43 +31,71 @@ func listenToNostrEvents() {
 		log.Fatal("DISCORD_WEBHOOK environment variable is required")
 	}
 
-	relay, err := nostr.RelayConnect(context.Background(), relayURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to relay: %v", err)
-	}
+	for {
+		log.Printf("Connecting to relay %s...", relayURL)
 
-	// Subscribe to kind 30311 events (NIP-53 Live Activities)
-	sub, err := relay.Subscribe(context.Background(), []nostr.Filter{{
-		Kinds: []int{30311},
-	}})
-	if err != nil {
-		log.Fatalf("Failed to subscribe: %v", err)
-	}
-
-	log.Printf("Connected to relay %s and subscribed to NIP-53 Live Activity events (kind 30311)", relayURL)
-
-	// Listen for events
-	for event := range sub.Events {
-		log.Printf("Received NIP-53 event with ID: %s", event.ID)
-
-		// Create Discord message
-		message := DiscordWebhookMessage{
-			Content: formatNostrMessage(event, nil),
+		ctx, cancel := context.WithCancel(context.Background())
+		relay, err := nostr.RelayConnect(ctx, relayURL)
+		if err != nil {
+			log.Printf("Failed to connect to relay: %v. Retrying in 5 seconds...", err)
+			cancel()
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
-		// Send to Discord
-		if err := sendToDiscord(discordWebhook, message); err != nil {
-			log.Printf("Failed to send to Discord: %v", err)
-		} else {
-			log.Printf("Successfully sent event %s to Discord", event.ID)
+		// Subscribe to kind 30311 events (NIP-53 Live Activities)
+		sub, err := relay.Subscribe(ctx, []nostr.Filter{{
+			Kinds: []int{30311},
+		}})
+		if err != nil {
+			log.Printf("Failed to subscribe: %v. Retrying in 5 seconds...", err)
+			cancel()
+			time.Sleep(5 * time.Second)
+			continue
 		}
+
+		log.Printf("Connected to relay %s and subscribed to NIP-53 Live Activity events (kind 30311)", relayURL)
+
+		// Listen for events
+		for event := range sub.Events {
+			log.Printf("Received NIP-53 event with ID: %s", event.ID)
+
+			// Create Discord message
+			message := DiscordWebhookMessage{
+				Content: formatNostrMessage(event, nil),
+			}
+
+			// Send to Discord with retries
+			for retries := 0; retries < 3; retries++ {
+				if err := sendToDiscord(discordWebhook, message); err != nil {
+					if retries < 2 {
+						log.Printf("Failed to send to Discord: %v. Retrying in 2 seconds...", err)
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					log.Printf("Failed to send to Discord after 3 attempts: %v", err)
+				} else {
+					log.Printf("Successfully sent event %s to Discord", event.ID)
+					break
+				}
+			}
+		}
+
+		// If we get here, the subscription was closed
+		log.Printf("Subscription closed. Reconnecting in 5 seconds...")
+		cancel()
+		time.Sleep(5 * time.Second)
 	}
 }
 
 func formatNostrMessage(event *nostr.Event, content map[string]interface{}) string {
 	// Get important tags
-	var title, summary, image, status, starts, ends string
+	var title, summary, image, status, starts, ends, streaming string
 	var participants []string
+
+	// Convert pubkey to npub
+	npub, _ := nip19.EncodePublicKey(event.PubKey)
+	authorNpub := npub[:8] + "..." // Take first 8 chars
 
 	for _, tag := range event.Tags {
 		switch tag[0] {
@@ -78,6 +107,8 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 			image = tag[1]
 		case "status":
 			status = tag[1]
+		case "streaming":
+			streaming = tag[1]
 		case "starts":
 			if t, err := strconv.ParseInt(tag[1], 10, 64); err == nil {
 				starts = time.Unix(t, 0).Format(time.RFC1123)
@@ -97,7 +128,9 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 
 	// Build message
 	var msg strings.Builder
-	msg.WriteString("🎯 **New Live Activity Update**\n\n")
+	msg.WriteString("\n ===== \n🎯 **New Live Activity Update**\n\n")
+
+	msg.WriteString(fmt.Sprintf("👤 **Author:** %s\n", authorNpub))
 
 	if title != "" {
 		msg.WriteString(fmt.Sprintf("📌 **Title:** %s\n", title))
@@ -116,6 +149,9 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 			emoji = "🔴"
 		}
 		msg.WriteString(fmt.Sprintf("%s **Status:** %s\n", emoji, status))
+	}
+	if streaming != "" {
+		msg.WriteString(fmt.Sprintf("🎥 **Stream:** %s\n", streaming))
 	}
 	if starts != "" {
 		msg.WriteString(fmt.Sprintf("⏰ **Starts:** %s\n", starts))
