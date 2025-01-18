@@ -111,9 +111,9 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 		case "planned":
 			emoji = "📅"
 		case "live":
-			emoji = "🔴"
+			emoji = "🟢"
 		case "ended":
-			emoji = "✅"
+			emoji = "🔴"
 		}
 		msg.WriteString(fmt.Sprintf("%s **Status:** %s\n", emoji, status))
 	}
