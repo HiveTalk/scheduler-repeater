@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=oneshot
-User=hivetalk
-Group=hivetalk
-WorkingDirectory=/opt/hivetalk/scheduler
-EnvironmentFile=/opt/hivetalk/scheduler/30311_events/.env
-ExecStart=/usr/local/bin/30311_events
+User=root
+Group=root
+WorkingDirectory=/root/scheduler
+EnvironmentFile=/root/scheduler/30311_events/.env
+ExecStart=/root/scheduler/30311_events/send30311
 # Give enough time for the parallel event processing
 TimeoutStartSec=180
 

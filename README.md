@@ -14,3 +14,11 @@ not be sent again if the row is selected in next poll.
 If retry is required, on next poll we will attempt. 
 
 If send is failed, it will be marked as failed. 
+
+# service file
+in /etc/systemd/system/scheduler.service
+
+# timer file
+
+in /etc/systemd/system/scheduler.timer
+
