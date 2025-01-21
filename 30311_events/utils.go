@@ -14,8 +14,16 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip19"
 )
 
-var defaultRelays = []string{"wss://honey.nostr1.com"}
+var relayurl = getRelayUrl()
+var defaultRelays = []string{relayurl}
 var hivetalkURL = getRequiredEnv("HIVETALK_URL")
+
+func getRelayUrl() string {
+	relayURL := os.Getenv("RELAY_URL")
+	if relayURL == "" {
+		log.Fatal("RELAY_URL environment variable is required")
+	}
+}
 
 func getRequiredEnv(key string) string {
 	value := os.Getenv(key)
