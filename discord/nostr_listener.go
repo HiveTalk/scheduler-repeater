@@ -44,8 +44,10 @@ func listenToNostrEvents() {
 		}
 
 		// Subscribe to kind 30311 events (NIP-53 Live Activities)
+		timestamp := nostr.Timestamp(time.Now().Unix())
 		sub, err := relay.Subscribe(ctx, []nostr.Filter{{
 			Kinds: []int{30311},
+			Since: &timestamp, // Pass the address of the timestamp
 		}})
 		if err != nil {
 			log.Printf("Failed to subscribe: %v. Retrying in 5 seconds...", err)
