@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=bitcarrot
-WorkingDirectory=/Users/bitcarrot/hivetalk/scheduler/discord
-EnvironmentFile=/Users/bitcarrot/hivetalk/scheduler/discord/.env
-ExecStart=/usr/local/go/bin/go run nostr_listener.go
+WorkingDirectory=/root/scheduler/discord
+EnvironmentFile=/root/scheduler/discord/.env
+ExecStart=/usr/bin/go run nostr_listener.go
 Restart=always
 RestartSec=10
 
