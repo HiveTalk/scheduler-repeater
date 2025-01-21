@@ -23,6 +23,7 @@ func getRelayUrl() string {
 	if relayURL == "" {
 		log.Fatal("RELAY_URL environment variable is required")
 	}
+	return relayURL
 }
 
 func getRequiredEnv(key string) string {
