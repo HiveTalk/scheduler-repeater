@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=bitcarrot
+User=root
 WorkingDirectory=/root/scheduler/discord
 EnvironmentFile=/root/scheduler/discord/.env
 ExecStart=/usr/bin/go run nostr_listener.go
