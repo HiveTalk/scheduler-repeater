@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,19 @@ const (
 	maxWorkers   = 2             // Reduced from 5 to 2 for 1-2 vCPU environments
 )
 
+type Event struct {
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	StartTime   time.Time  `json:"start_time"`
+	EndTime     time.Time  `json:"end_time"`
+	RoomName    string     `json:"room_name"`
+	Identifier  string     `json:"identifier"`
+	Description string     `json:"description"`
+	ImageURL    string     `json:"image_url"`
+	Status      string     `json:"status"`
+	NostrPubkey string     `json:"nostr_pubkey"`
+}
+
 type EventBatch struct {
 	Events []Event
 	Status string
@@ -28,6 +42,9 @@ func processBatch(batch EventBatch) error {
 	errChan := make(chan error, len(batch.Events))
 	semaphore := make(chan struct{}, maxWorkers)
 
+	// Initialize Nostr client
+	nostrClient := NewNostrClient(nil) // Use default relays
+
 	for _, event := range batch.Events {
 		wg.Add(1)
 		go func(e Event) {
@@ -35,7 +52,21 @@ func processBatch(batch EventBatch) error {
 			semaphore <- struct{}{}        // Acquire
 			defer func() { <-semaphore }() // Release
 
-			if err := sendNewEvent(e, batch.Status); err != nil {
+			// Convert Event to EventData
+			eventData := EventData{
+				ProfileID:    e.ID,
+				Name:        e.Name,
+				Description: e.Description,
+				ImageURL:    e.ImageURL,
+				StartTime:   e.StartTime,
+				EndTime:     e.EndTime,
+				RoomName:    e.RoomName,
+				Identifier:  e.Identifier,
+				NostrPubkey: e.NostrPubkey,
+			}
+
+			// Process the Nostr event
+			if err := ProcessNostrEvent(eventData, os.Getenv("HIVETALK_URL"), os.Getenv("NOSTR_PRIVATE_KEY"), nostrClient); err != nil {
 				log.Printf("Failed to process event %s: %v", e.ID, err)
 				errChan <- err
 			} else {
@@ -84,7 +115,7 @@ func fetchUpcomingEvents() error {
 
 		// Now run the actual query
 		query := `
-			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status
+			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status, nostr_pubkey
 			FROM events 
 			WHERE start_time >= $1 
 			AND start_time <= $2 
@@ -110,8 +141,9 @@ func fetchUpcomingEvents() error {
 				&event.RoomName,
 				&event.Identifier,
 				&event.Description,
-				&event.Image,
+				&event.ImageURL,
 				&event.Status,
+				&event.NostrPubkey,
 			); err != nil {
 				log.Printf("Error scanning starting event: %v", err)
 				continue
@@ -151,7 +183,7 @@ func fetchUpcomingEvents() error {
 
 		// Now run the actual query
 		query := `
-			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status
+			SELECT id, name, start_time, end_time, room_name, identifier, description, image_url, status, nostr_pubkey
 			FROM events 
 			WHERE end_time >= $1 
 			AND end_time <= $2 
@@ -177,8 +209,9 @@ func fetchUpcomingEvents() error {
 				&event.RoomName,
 				&event.Identifier,
 				&event.Description,
-				&event.Image,
+				&event.ImageURL,
 				&event.Status,
+				&event.NostrPubkey,
 			); err != nil {
 				log.Printf("Error scanning ending event: %v", err)
 				continue
@@ -219,8 +252,22 @@ func fetchUpcomingEvents() error {
 }
 
 func main() {
-	if err := fetchUpcomingEvents(); err != nil {
-		log.Fatalf("Error fetching upcoming events: %v", err)
+	// Check required environment variables
+	requiredEnvVars := []string{"HIVETALK_URL", "NOSTR_PRIVATE_KEY", "DATABASE_URL"}
+	for _, envVar := range requiredEnvVars {
+		if os.Getenv(envVar) == "" {
+			log.Fatalf("Required environment variable %s is not set", envVar)
+		}
+	}
+
+	// Run the event processing loop
+	for {
+		if err := fetchUpcomingEvents(); err != nil {
+			log.Printf("Error processing events: %v", err)
+		}
+
+		// Wait for a minute before the next iteration
+		time.Sleep(1 * time.Minute)
 	}
 }
 
