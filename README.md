@@ -22,3 +22,8 @@ in /etc/systemd/system/scheduler.service
 
 in /etc/systemd/system/scheduler.timer
 
+
+# example services running
+
+systemctl status scheduler
+systemctl status hivetalk-discord.service
