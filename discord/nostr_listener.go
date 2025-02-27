@@ -43,8 +43,11 @@ func listenToNostrEvents() {
 			continue
 		}
 
+		// Calculate the timestamp for 7 days ago
+		sevenDaysAgo := time.Now().AddDate(0, 0, -7).Unix()
+		timestamp := nostr.Timestamp(sevenDaysAgo)
 		// Subscribe to kind 30311, 30312, and 30313 events (NIP-53 Live Activities)
-		timestamp := nostr.Timestamp(time.Now().Unix())
+		// timestamp := nostr.Timestamp(time.Now().Unix())
 		sub, err := relay.Subscribe(ctx, []nostr.Filter{{
 			Kinds: []int{30311, 30312, 30313},
 			Since: &timestamp, // Pass the address of the timestamp
@@ -60,11 +63,11 @@ func listenToNostrEvents() {
 
 		// Listen for events
 		for event := range sub.Events {
-			log.Printf("Received NIP-53 event with ID: %s", event.ID)
+			log.Printf("Received NIP-53 event with ID: %s, Kind: %d", event.ID, event.Kind)
 
 			// Create Discord message
 			message := DiscordWebhookMessage{
-				Content: formatNostrMessage(event, nil),
+				Content: formatNostrMessage(event, nil) + "\n\n**Original Event JSON:**\n```json\n" + prettyJSON(event) + "\n```",
 			}
 
 			// Send to Discord with retries
@@ -98,6 +101,17 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 	// Convert pubkey to npub
 	npub, _ := nip19.EncodePublicKey(event.PubKey)
 	authorNpub := npub[:8] + "..." // Take first 8 chars
+
+	// Determine kind description
+	kindDescription := "Unknown"
+	switch event.Kind {
+	case 30311:
+		kindDescription = "Live Activities"
+	case 30312:
+		kindDescription = "Interactive Rooms"
+	case 30313:
+		kindDescription = "Scheduled Meeting Room"
+	}
 
 	for _, tag := range event.Tags {
 		switch tag[0] {
@@ -134,9 +148,10 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 
 	// Build message
 	var msg strings.Builder
-	msg.WriteString("\n ===== \n🎯 **New Live Activity Update**\n\n")
+	msg.WriteString("\n ===== 🎯 **New Live Activity Update** ======\n\n")
 
 	msg.WriteString(fmt.Sprintf("👤 **Author:** %s\n", authorNpub))
+	msg.WriteString(fmt.Sprintf("🔢 **Kind:** %d - %s\n", event.Kind, kindDescription))
 
 	if title != "" {
 		msg.WriteString(fmt.Sprintf("📌 **Title:** %s\n", title))
@@ -181,14 +196,13 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 	return msg.String()
 }
 
-// unused
-// func prettyJSON(v interface{}) string {
-// 	b, err := json.MarshalIndent(v, "", "  ")
-// 	if err != nil {
-// 		return fmt.Sprintf("%v", v)
-// 	}
-// 	return string(b)
-// }
+func prettyJSON(v interface{}) string {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
+}
 
 func sendToDiscord(webhookURL string, message DiscordWebhookMessage) error {
 	payload, err := json.Marshal(message)
