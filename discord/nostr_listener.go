@@ -43,10 +43,10 @@ func listenToNostrEvents() {
 			continue
 		}
 
-		// Subscribe to kind 30311 events (NIP-53 Live Activities)
+		// Subscribe to kind 30311, 30312, and 30313 events (NIP-53 Live Activities)
 		timestamp := nostr.Timestamp(time.Now().Unix())
 		sub, err := relay.Subscribe(ctx, []nostr.Filter{{
-			Kinds: []int{30311},
+			Kinds: []int{30311, 30312, 30313},
 			Since: &timestamp, // Pass the address of the timestamp
 		}})
 		if err != nil {
@@ -56,7 +56,7 @@ func listenToNostrEvents() {
 			continue
 		}
 
-		log.Printf("Connected to relay %s and subscribed to NIP-53 Live Activity events (kind 30311)", relayURL)
+		log.Printf("Connected to relay %s and subscribed to NIP-53 Live Activity events (kind 30311, 30312, 30313)", relayURL)
 
 		// Listen for events
 		for event := range sub.Events {
@@ -92,7 +92,7 @@ func listenToNostrEvents() {
 
 func formatNostrMessage(event *nostr.Event, content map[string]interface{}) string {
 	// Get important tags
-	var title, summary, image, status, starts, ends, streaming string
+	var title, summary, image, status, starts, ends, streaming, service, room string
 	var participants []string
 
 	// Convert pubkey to npub
@@ -119,6 +119,10 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 			if t, err := strconv.ParseInt(tag[1], 10, 64); err == nil {
 				ends = time.Unix(t, 0).Format(time.RFC1123)
 			}
+		case "service":
+			service = tag[1]
+		case "room":
+			room = tag[1]
 		case "p":
 			role := "Participant"
 			if len(tag) >= 4 {
@@ -161,6 +165,12 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 	if ends != "" {
 		msg.WriteString(fmt.Sprintf("🏁 **Ends:** %s\n", ends))
 	}
+	if service != "" {
+		msg.WriteString(fmt.Sprintf("🔗 **Service:** %s\n", service))
+	}
+	if room != "" {
+		msg.WriteString(fmt.Sprintf("🏠 **Room:** %s\n", room))
+	}
 	if len(participants) > 0 {
 		msg.WriteString(fmt.Sprintf("👥 **Participants:** %s\n", strings.Join(participants, ", ")))
 	}
@@ -171,13 +181,14 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 	return msg.String()
 }
 
-func prettyJSON(v interface{}) string {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	return string(b)
-}
+// unused
+// func prettyJSON(v interface{}) string {
+// 	b, err := json.MarshalIndent(v, "", "  ")
+// 	if err != nil {
+// 		return fmt.Sprintf("%v", v)
+// 	}
+// 	return string(b)
+// }
 
 func sendToDiscord(webhookURL string, message DiscordWebhookMessage) error {
 	payload, err := json.Marshal(message)
