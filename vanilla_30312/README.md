@@ -90,3 +90,43 @@ The above Hivetalk Vanilla API data should be reformatted and sent to the Relay 
         ]
     }
 ]
+
+
+
+## Example code: Publishing to two relays
+
+```bash
+go get github.com/nbd-wtf/go-nostr
+```
+
+```go
+sk := nostr.GeneratePrivateKey()
+pub, _ := nostr.GetPublicKey(sk)
+
+ev := nostr.Event{
+	PubKey:    pub,
+	CreatedAt: nostr.Now(),
+	Kind:      nostr.KindTextNote,
+	Tags:      nil,
+	Content:   "Hello World!",
+}
+
+// calling Sign sets the event ID field and the event Sig field
+ev.Sign(sk)
+
+// publish the event to two relays
+ctx := context.Background()
+for _, url := range []string{"wss://relay.stoner.com", "wss://nostr-pub.wellorder.net"} {
+	relay, err := nostr.RelayConnect(ctx, url)
+	if err != nil {
+		fmt.Println(err)
+		continue
+	}
+	if err := relay.Publish(ctx, ev); err != nil {
+		fmt.Println(err)
+		continue
+	}
+
+	fmt.Printf("published to %s\n", url)
+}
+```
