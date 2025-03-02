@@ -1,4 +1,4 @@
-# backend-scheduler
+# Hivetalk backend-scheduler
 
 This scheduler is for for posting nostr events to relays from the server side, 
 using the db as the datasource for signing, formatting and sending.
