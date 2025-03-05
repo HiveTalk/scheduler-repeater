@@ -10,7 +10,7 @@ export BASE_URL = 'https://hivetalk.org'
 curl -X 'GET' \
   '${BASE_URL}/api/v1/meetings' \
   -H 'accept: application/json' \
-  -H 'authorization: xxxxxxxxx'
+  -H 'authorization: ${HIVETALK_API_KEY}'
 ```
 
 Response: 
@@ -97,40 +97,93 @@ The above Hivetalk Vanilla API data should be reformatted and sent to the Relay 
 ```
 
 
-## Example code: Publishing to two relays
+## Publishing to two relays
+
+```sh
+export RELAY_URLS='wss://honey.nostr1.com','wss://hivetalk.nostr1.com'
+export NOSTR_PVT_KEY='private-key-for-nostr-bot'
+```
+
+Dependency:
 
 ```bash
 go get github.com/nbd-wtf/go-nostr
 ```
 
+Example code:
+
 ```go
-sk := nostr.GeneratePrivateKey()
-pub, _ := nostr.GetPublicKey(sk)
 
-ev := nostr.Event{
-	PubKey:    pub,
-	CreatedAt: nostr.Now(),
-	Kind:      nostr.KindTextNote,
-	Tags:      nil,
-	Content:   "Hello World!",
-}
+package main
 
-// calling Sign sets the event ID field and the event Sig field
-ev.Sign(sk)
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
 
-// publish the event to two relays
-ctx := context.Background()
-for _, url := range []string{"wss://relay.stoner.com", "wss://nostr-pub.wellorder.net"} {
-	relay, err := nostr.RelayConnect(ctx, url)
+	"github.com/nbd-wtf/go-nostr"
+)
+
+func main() {
+	// Get private key from environment variable
+	sk := os.Getenv("NOSTR_PVT_KEY")
+	if sk == "" {
+		fmt.Println("Error: NOSTR_PVT_KEY environment variable is not set")
+		return
+	}
+
+	// Get public key from private key
+	pub, err := nostr.GetPublicKey(sk)
 	if err != nil {
-		fmt.Println(err)
-		continue
-	}
-	if err := relay.Publish(ctx, ev); err != nil {
-		fmt.Println(err)
-		continue
+		fmt.Printf("Error getting public key: %v\n", err)
+		return
 	}
 
-	fmt.Printf("published to %s\n", url)
+	// Create event
+	ev := nostr.Event{
+		PubKey:    pub,
+		CreatedAt: nostr.Now(),
+		Kind:      nostr.KindTextNote,
+		Tags:      nil,
+		Content:   "Hello World!",
+	}
+
+	// Sign the event
+	if err := ev.Sign(sk); err != nil {
+		fmt.Printf("Error signing event: %v\n", err)
+		return
+	}
+
+	// Get relay URLs from environment variable
+	relayURLs := os.Getenv("RELAY_URLS")
+	if relayURLs == "" {
+		fmt.Println("Error: RELAY_URLS environment variable is not set")
+		return
+	}
+
+	// Split relay URLs (assuming they're comma-separated)
+	urls := strings.Split(relayURLs, ",")
+
+	// Publish to each relay
+	ctx := context.Background()
+	for _, url := range urls {
+		// Trim any whitespace and remove quotes
+		url = strings.Trim(strings.TrimSpace(url), "'\"")
+
+		relay, err := nostr.RelayConnect(ctx, url)
+		if err != nil {
+			fmt.Printf("Error connecting to relay %s: %v\n", url, err)
+			continue
+		}
+		defer relay.Close()
+
+		if err := relay.Publish(ctx, ev); err != nil {
+			fmt.Printf("Error publishing to %s: %v\n", url, err)
+			continue
+		}
+		fmt.Printf("Published to %s\n", url)
+	}
 }
+
 ```
