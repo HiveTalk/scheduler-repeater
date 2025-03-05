@@ -71,18 +71,22 @@ The above Hivetalk Vanilla API data should be reformatted and sent to the Relay 
 
 - The following values are set in the environment variables: summary, image, relays, any number of 't' tags.
 
-[   {   
+```
+[
+	{ 
         "content":"",
         "created_at":1740218511,
         "id":"216d9d33b1f0013144c886eea66f6e590811f69a99f6b65037d5bac6bebac7a6",
         "kind":30312,
-        "pubkey":"3878d95db7b854c3a0d3b2d6b7bf9bf28b36162be64326f5521ba71cf3b45a69","sig":"bc9ebd8639121094b9218416f63bcccaae6c685bea434f0086f364f2b4189836692366903feb6fe373eba450efdad3862ef3ceaf7fa73f231b0fdfdc55a4ac0f",
+	"pubkey":"3878d95db7b854c3a0d3b2d6b7bf9bf28b36162be64326f5521ba71cf3b45a69",
+	"sig":"bc9ebd8639121094b9218416f63bcccaae6c685bea434f0086f364f2b4189836692366903feb6fe373eba450efdad3862ef3ceaf7fa73f231b0fdfdc55a4ac0f",
         "tags":[
             ["d","eeueo1lua5"],
             ["room","56377RedLizard"],
             ["summary","dsecrlkjasdf"],
             ["status", "open"],
-            ["image","https://image.nostr.build/56795451a7e9935992b6078f0ee40ea4b0013f8efdf954fb41a3a6a7c33f25a7.png"],["service","https://hivetalk.org/join/56377RedLizard"],
+            ["image","https://image.nostr.build/56795451a7e9935992b6078f0ee40ea4b0013f8efdf954fb41a3a6a7c33f25a7.png"],
+	    ["service","https://hivetalk.org/join/56377RedLizard"],
             ["p","3878d95db7b854c3a0d3b2d6b7bf9bf28b36162be64326f5521ba71cf3b45a69","owner"],
             ["t","hivetalk"],
             ["t","interactive room"],
@@ -90,7 +94,7 @@ The above Hivetalk Vanilla API data should be reformatted and sent to the Relay 
         ]
     }
 ]
-
+```
 
 
 ## Example code: Publishing to two relays
