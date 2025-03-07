@@ -268,14 +268,22 @@ func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, 
 		url = strings.TrimSpace(url)
 		log.Printf("Connecting to relay: %s", url)
 
-		relay, err := nostr.RelayConnect(ctx, url)
+		// Create a timeout context for each relay connection
+		relayCtx, relayCancel := context.WithTimeout(ctx, 10*time.Second)
+
+		relay, err := nostr.RelayConnect(relayCtx, url)
 		if err != nil {
 			log.Printf("Error connecting to relay %s: %v\n", url, err)
+			relayCancel() // Cancel context if connection fails
 			continue
 		}
-		defer relay.Close()
 
-		publishStatus, err := relay.Publish(ctx, ev)
+		publishStatus, err := relay.Publish(relayCtx, ev)
+
+		// Always close the relay and cancel context when done
+		relay.Close()
+		relayCancel()
+
 		if err != nil {
 			log.Printf("Error publishing to %s: %v\n", url, err)
 			continue
@@ -285,6 +293,7 @@ func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, 
 
 	return nil
 }
+
 
 func main() {
 	// Configure logging
