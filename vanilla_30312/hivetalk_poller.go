@@ -362,6 +362,8 @@ func main() {
 		log.Printf("Found %d active meetings", len(response.Meetings))
 
 		activeRoomIDs := []string{}
+		roomsWithPubkey := []string{}
+		roomsWithoutPubkey := []string{}
 
 		// Process each meeting
 		for _, meeting := range response.Meetings {
@@ -381,7 +383,10 @@ func main() {
 			// Skip if no presenter with a pubkey
 			if ownerPubkey == "" {
 				log.Printf("Skipping room %s: No presenter with pubkey found", meeting.RoomID)
+				roomsWithoutPubkey = append(roomsWithoutPubkey, meeting.RoomID)
 				continue
+			} else {
+				roomsWithPubkey = append(roomsWithPubkey, meeting.RoomID)
 			}
 
 			// Get or create d tag for this room
@@ -401,6 +406,9 @@ func main() {
 				log.Printf("Room %s already open, no event published", meeting.RoomID)
 			}
 		}
+
+		log.Printf("Rooms with presenter pubkey (%d): %v", len(roomsWithPubkey), roomsWithPubkey)
+		log.Printf("Rooms without presenter pubkey (%d): %v", len(roomsWithoutPubkey), roomsWithoutPubkey)
 
 		// Check for closed rooms
 		closedRooms := db.checkClosedRooms(activeRoomIDs)
