@@ -1,0 +1,31 @@
+2025/03/05 00:41:32 hivetalk_poller.go:292: Starting HiveTalk poller...
+2025/03/05 00:41:32 hivetalk_poller.go:298: Environment variables loaded
+2025/03/05 00:41:32 hivetalk_poller.go:310: Using base URL: https://hivetalk.org
+2025/03/05 00:41:32 hivetalk_poller.go:311: Relay URLs: wss://honey.nostr1.com
+2025/03/05 00:41:32 hivetalk_poller.go:325: Found 1 relay URLs
+2025/03/05 00:41:32 hivetalk_poller.go:332: Room database loaded with 0 rooms
+2025/03/05 00:41:32 hivetalk_poller.go:340: Polling https://hivetalk.org every 1m0s
+2025/03/05 00:41:32 hivetalk_poller.go:344: Polling for meetings...
+2025/03/05 00:41:33 hivetalk_poller.go:353: Found 1 active meetings
+2025/03/05 00:41:33 hivetalk_poller.go:359: Processing room: Siamstr with 1 peers
+2025/03/05 00:41:33 hivetalk_poller.go:374: Skipping room Siamstr: No presenter with pubkey found
+2025/03/05 00:41:33 hivetalk_poller.go:398: Found 0 closed rooms
+2025/03/05 00:41:33 hivetalk_poller.go:407: Sleeping for 1m0s before next poll
+2025/03/05 00:42:33 hivetalk_poller.go:344: Polling for meetings...
+2025/03/05 00:42:33 hivetalk_poller.go:353: Found 1 active meetings
+2025/03/05 00:42:33 hivetalk_poller.go:359: Processing room: Siamstr with 1 peers
+2025/03/05 00:42:33 hivetalk_poller.go:374: Skipping room Siamstr: No presenter with pubkey found
+2025/03/05 00:42:33 hivetalk_poller.go:398: Found 0 closed rooms
+2025/03/05 00:42:33 hivetalk_poller.go:407: Sleeping for 1m0s before next poll
+2025/03/05 00:43:33 hivetalk_poller.go:344: Polling for meetings...
+2025/03/05 00:43:34 hivetalk_poller.go:353: Found 1 active meetings
+2025/03/05 00:43:34 hivetalk_poller.go:359: Processing room: Siamstr with 1 peers
+2025/03/05 00:43:34 hivetalk_poller.go:374: Skipping room Siamstr: No presenter with pubkey found
+2025/03/05 00:43:34 hivetalk_poller.go:398: Found 0 closed rooms
+2025/03/05 00:43:34 hivetalk_poller.go:407: Sleeping for 1m0s before next poll
+2025/03/05 00:44:34 hivetalk_poller.go:344: Polling for meetings...
+2025/03/05 00:44:34 hivetalk_poller.go:353: Found 1 active meetings
+2025/03/05 00:44:34 hivetalk_poller.go:359: Processing room: Siamstr with 1 peers
+2025/03/05 00:44:34 hivetalk_poller.go:374: Skipping room Siamstr: No presenter with pubkey found
+2025/03/05 00:44:34 hivetalk_poller.go:398: Found 0 closed rooms
+2025/03/05 00:44:34 hivetalk_poller.go:407: Sleeping for 1m0s before next poll
