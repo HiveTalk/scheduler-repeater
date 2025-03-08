@@ -16,7 +16,7 @@ go get github.com/nbd-wtf/go-nostr
 
 3. Configure your `.env` file with the following variables (you can copy from `env.example`):
 
-```
+```sh
 RELAY_URLS='wss://honey.nostr1.com','wss://hivetalk.nostr1.com'
 NOSTR_PVT_KEY='your-private-key-for-nostr-bot'
 HIVETALK_API_KEY='your-hivetalk-api-key'
