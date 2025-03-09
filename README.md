@@ -1,5 +1,13 @@
 # Hivetalk backend-scheduler
 
+There are multiple scrips in this repository
+
+- vanilla_30312: This script posts 30312 room open and closes for the hivetalksfu server.
+It will only post for rooms that are opened with a pubkey moderator. 
+
+- Discord: This script posts 30311, 30312, 30313 events sent to select nostr relays to discord dev channels. 
+
+- 30311_events
 This scheduler is for for posting nostr events to relays from the server side, 
 using the db as the datasource for signing, formatting and sending.
 
@@ -27,3 +35,4 @@ in /etc/systemd/system/scheduler.timer
 
 systemctl status scheduler
 systemctl status hivetalk-discord.service
+
