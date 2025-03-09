@@ -239,7 +239,7 @@ func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, 
 	}
 
 	// Add t tags
-	tags = append(tags, nostr.Tag{"t", "hivetalk"})
+	tags = append(tags, nostr.Tag{"t", "hivetalk-vanilla"})
 	tags = append(tags, nostr.Tag{"t", "interactive room"})
 
 	// Add relays tag
