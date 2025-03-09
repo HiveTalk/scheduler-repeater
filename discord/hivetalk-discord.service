@@ -7,7 +7,7 @@ Type=simple
 User=root
 WorkingDirectory=/root/scheduler/discord
 EnvironmentFile=/root/scheduler/discord/.env
-ExecStart=/usr/bin/go run nostr_listener.go
+ExecStart=/usr/bin/bash -c 'PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /root/scheduler/discord/run.sh'
 Restart=always
 RestartSec=10
 
