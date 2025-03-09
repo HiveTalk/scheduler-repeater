@@ -53,13 +53,12 @@ After=network.target
 [Service]
 Type=simple
 User=yourusername
+Group=yourgroupname
+EnvironmentFile=/path/to/vanilla_30312/.env
 WorkingDirectory=/path/to/vanilla_30312
-ExecStart=/bin/bash /path/to/vanilla_30312/run.sh
+ExecStart=/usr/bin/bash -c 'PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /root/scheduler/vanilla_30312/run.sh'
 Restart=on-failure
 RestartSec=10
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=hivetalk-poller
 
 [Install]
 WantedBy=multi-user.target
