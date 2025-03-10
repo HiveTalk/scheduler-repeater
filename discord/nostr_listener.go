@@ -142,7 +142,8 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 			if len(tag) >= 4 {
 				role = tag[3]
 			}
-			njump := "https://njump.me/" + tag[1]
+			npub, _ := nip19.EncodePublicKey(tag[1])
+			njump := "https://njump.me/" + npub
 			participants = append(participants, fmt.Sprintf("%s (%s)", njump, role))
 			//participants = append(participants, fmt.Sprintf("%s (%s)", tag[1][:8], role))
 		}
