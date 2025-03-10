@@ -138,17 +138,19 @@ func formatNostrMessage(event *nostr.Event, content map[string]interface{}) stri
 		case "room":
 			room = tag[1]
 		case "p":
-			role := "Participant"
+			role := "owner"
 			if len(tag) >= 4 {
 				role = tag[3]
 			}
-			participants = append(participants, fmt.Sprintf("%s (%s)", tag[1][:8], role))
+			njump := "https://njump.me/" + tag[1]
+			participants = append(participants, fmt.Sprintf("%s (%s)", njump, role))
+			//participants = append(participants, fmt.Sprintf("%s (%s)", tag[1][:8], role))
 		}
 	}
 
 	// Build message
 	var msg strings.Builder
-	msg.WriteString("\n ===== 🎯 **New Live Activity Update** ======\n\n")
+	msg.WriteString("\n ===== 🎯 **New Nostr Event Update** ======\n\n")
 
 	msg.WriteString(fmt.Sprintf("👤 **Author:** %s\n", authorNpub))
 	msg.WriteString(fmt.Sprintf("🔢 **Kind:** %d - %s\n", event.Kind, kindDescription))
