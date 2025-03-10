@@ -212,7 +212,7 @@ func fetchMeetings(baseURL, apiKey string) (*HiveTalkResponse, error) {
 }
 
 // Create and publish a 30312 event
-func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, ownerPubkey string, relayURLs []string) error {
+func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, ownerPubkey string, relayURLs []string, baseURL string) error {
 	log.Printf("Publishing %s event for room %s with dTag %s", status, roomID, dTag)
 	
 	// Get public key from private key
@@ -228,8 +228,8 @@ func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, 
 		nostr.Tag{"room", roomID},
 		nostr.Tag{"summary", "HiveTalk Room"},
 		nostr.Tag{"status", status},
-		nostr.Tag{"image", "https://hivetalk.org/logo.png"},
-		nostr.Tag{"service", fmt.Sprintf("https://hivetalk.org/join/%s", roomID)},
+		nostr.Tag{"image", baseURL+"/logo.png"},
+		nostr.Tag{"service", fmt.Sprintf(baseURL+"/join/%s", roomID)},
 	}
 
 	// Add owner tag if available
@@ -298,7 +298,7 @@ func publishEvent(ctx context.Context, privateKey, roomID, dTag, status string, 
 func main() {
 	// Configure logging
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("Starting HiveTalk poller...")
+	log.Println("Starting HiveTalk vanilla poller...")
 	
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
@@ -399,7 +399,7 @@ func main() {
 			// Publish event if status changed
 			if statusChanged {
 				log.Printf("Room %s status changed to open, publishing event", meeting.RoomID)
-				if err := publishEvent(ctx, privateKey, meeting.RoomID, dTag, "open", ownerPubkey, relayURLs); err != nil {
+				if err := publishEvent(ctx, privateKey, meeting.RoomID, dTag, "open", ownerPubkey, relayURLs, baseURL); err != nil {
 					log.Printf("Error publishing open event for room %s: %v", meeting.RoomID, err)
 				}
 			} else {
@@ -416,7 +416,7 @@ func main() {
 		for _, roomID := range closedRooms {
 			dTag := db.getDTag(roomID)
 			log.Printf("Room %s closed, publishing closed event with dTag %s", roomID, dTag)
-			if err := publishEvent(ctx, privateKey, roomID, dTag, "closed", "", relayURLs); err != nil {
+			if err := publishEvent(ctx, privateKey, roomID, dTag, "closed", "", relayURLs, baseURL); err != nil {
 				log.Printf("Error publishing closed event for room %s: %v", roomID, err)
 			}
 		}
