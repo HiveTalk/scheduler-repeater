@@ -34,3 +34,8 @@
 2025/03/23 21:33:48 main.go:92: Checking for scheduled notes to send at 2025-03-24T04:33:48Z
 2025/03/23 21:33:48 main.go:141: Found 0 pending notes to process
 2025/03/23 21:33:48 main.go:84: Sleeping for 60 seconds before next poll
+2025/03/23 22:43:24 main.go:57: Starting send_notes service...
+2025/03/23 22:43:24 main.go:76: Database connection established
+2025/03/23 22:43:24 main.go:92: Checking for scheduled notes to send at 2025-03-24T05:43:24Z
+2025/03/23 22:43:24 main.go:141: Found 0 pending notes to process
+2025/03/23 22:43:24 main.go:84: Sleeping for 60 seconds before next poll

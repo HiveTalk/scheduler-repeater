@@ -5,11 +5,12 @@ After=network.target postgresql.service
 [Service]
 Type=simple
 User=root
+EnvironmentFile=/root/scheduler/send_notes/.env
 WorkingDirectory=/root/scheduler/send_notes
 ExecStart=/usr/bin/bash -c 'PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /root/scheduler/send_notes/run.sh'
 Restart=always
-RestartSec=30
-Environment=PAGER=cat
+RestartSec=10
+#Environment=PAGER=cat
 
 # Hardening measures - temporarily disabled for troubleshooting
 # PrivateTmp=true
