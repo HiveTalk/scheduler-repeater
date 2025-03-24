@@ -1,4 +1,4 @@
-module github.com/bitcarrot/hivetalk/scheduler/30311_events/discord
+module github.com/bitcarrot/hivetalk/scheduler/discord
 
 go 1.21
 
