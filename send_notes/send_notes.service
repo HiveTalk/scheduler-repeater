@@ -4,18 +4,18 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=hivetalk
-WorkingDirectory=/opt/hivetalk/scheduler/send_notes
-ExecStart=/opt/hivetalk/scheduler/send_notes/send_notes
+User=root
+WorkingDirectory=/root/scheduler/send_notes
+ExecStart=/root/scheduler/send_notes/run.sh
 Restart=always
 RestartSec=30
 Environment=PAGER=cat
 
-# Hardening measures
-PrivateTmp=true
-ProtectSystem=full
-NoNewPrivileges=true
-ProtectHome=true
+# Hardening measures - temporarily disabled for troubleshooting
+# PrivateTmp=true
+# ProtectSystem=full
+# NoNewPrivileges=true
+# ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target

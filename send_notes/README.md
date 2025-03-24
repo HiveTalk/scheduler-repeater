@@ -25,7 +25,7 @@ To deploy as a systemd service:
 2. Copy the `.env` file to the same directory
 3. Copy `send_notes.service` to `/etc/systemd/system/`
 4. Enable and start the service:
-   ```
+   ```sh
    sudo systemctl daemon-reload
    sudo systemctl enable send_notes.service
    sudo systemctl start send_notes.service
