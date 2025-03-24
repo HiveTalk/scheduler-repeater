@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.23.0
 
 require (
-	github.com/jackc/pgx/v5 v5.5.3
+	github.com/jackc/pgx/v5 v5.7.3
 	github.com/joho/godotenv v1.5.1
 	github.com/nbd-wtf/go-nostr v0.27.5
 )
