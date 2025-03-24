@@ -1,0 +1,36 @@
+2025/03/23 21:26:20 main.go:56: Starting send_notes service...
+2025/03/23 21:26:20 main.go:75: Database connection established
+2025/03/23 21:26:20 main.go:91: Checking for scheduled notes to send at 2025-03-24T04:26:20Z
+2025/03/23 21:26:20 main.go:130: Error scanning note: can't scan into dest[12]: cannot scan NULL into *string
+2025/03/23 21:26:20 main.go:80: Error processing pending notes: error iterating rows: can't scan into dest[12]: cannot scan NULL into *string
+2025/03/23 21:26:20 main.go:83: Sleeping for 60 seconds before next poll
+2025/03/23 21:27:20 main.go:91: Checking for scheduled notes to send at 2025-03-24T04:27:20Z
+2025/03/23 21:27:20 main.go:80: Error processing pending notes: failed to query pending notes: ERROR: prepared statement "stmtcache_b64d16e8939961b6e744c8da5048db5b8fb63142eff31774" already exists (SQLSTATE 42P05)
+2025/03/23 21:27:20 main.go:83: Sleeping for 60 seconds before next poll
+2025/03/23 21:27:34 main.go:56: Starting send_notes service...
+2025/03/23 21:27:35 main.go:75: Database connection established
+2025/03/23 21:27:35 main.go:91: Checking for scheduled notes to send at 2025-03-24T04:27:35Z
+2025/03/23 21:27:35 main.go:80: Error processing pending notes: failed to query pending notes: ERROR: prepared statement "stmtcache_b64d16e8939961b6e744c8da5048db5b8fb63142eff31774" already exists (SQLSTATE 42P05)
+2025/03/23 21:27:35 main.go:83: Sleeping for 60 seconds before next poll
+2025/03/23 21:28:35 main.go:91: Checking for scheduled notes to send at 2025-03-24T04:28:35Z
+2025/03/23 21:28:35 main.go:80: Error processing pending notes: failed to query pending notes: ERROR: prepared statement "stmtcache_b64d16e8939961b6e744c8da5048db5b8fb63142eff31774" already exists (SQLSTATE 42P05)
+2025/03/23 21:28:35 main.go:83: Sleeping for 60 seconds before next poll
+2025/03/23 21:31:34 main.go:57: Starting send_notes service...
+2025/03/23 21:31:34 main.go:76: Database connection established
+2025/03/23 21:31:34 main.go:92: Checking for scheduled notes to send at 2025-03-24T04:31:34Z
+2025/03/23 21:31:34 main.go:141: Found 2 pending notes to process
+2025/03/23 21:31:34 main.go:170: Processing note ID: 4635c9ec-3aa2-4c74-b850-a65306a75108, scheduled for: 2025-03-21T16:10:00Z
+2025/03/23 21:31:34 main.go:182: Signed event is null
+2025/03/23 21:31:34 main.go:170: Processing note ID: b3b18cb4-4c5a-41de-a151-12f6b45a740a, scheduled for: 2025-03-18T14:50:00Z
+2025/03/23 21:31:34 main.go:182: Signed event is null
+2025/03/23 21:31:34 main.go:282: Updated note b3b18cb4-4c5a-41de-a151-12f6b45a740a status to failed
+2025/03/23 21:31:34 main.go:282: Updated note 4635c9ec-3aa2-4c74-b850-a65306a75108 status to failed
+2025/03/23 21:31:34 main.go:84: Sleeping for 60 seconds before next poll
+2025/03/23 21:32:34 main.go:92: Checking for scheduled notes to send at 2025-03-24T04:32:34Z
+2025/03/23 21:32:34 main.go:141: Found 0 pending notes to process
+2025/03/23 21:32:34 main.go:84: Sleeping for 60 seconds before next poll
+2025/03/23 21:33:47 main.go:57: Starting send_notes service...
+2025/03/23 21:33:48 main.go:76: Database connection established
+2025/03/23 21:33:48 main.go:92: Checking for scheduled notes to send at 2025-03-24T04:33:48Z
+2025/03/23 21:33:48 main.go:141: Found 0 pending notes to process
+2025/03/23 21:33:48 main.go:84: Sleeping for 60 seconds before next poll

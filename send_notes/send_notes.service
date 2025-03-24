@@ -1,0 +1,21 @@
+[Unit]
+Description=HiveTalk Send Notes Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=hivetalk
+WorkingDirectory=/opt/hivetalk/scheduler/send_notes
+ExecStart=/opt/hivetalk/scheduler/send_notes/send_notes
+Restart=always
+RestartSec=30
+Environment=PAGER=cat
+
+# Hardening measures
+PrivateTmp=true
+ProtectSystem=full
+NoNewPrivileges=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
