@@ -2,6 +2,8 @@
 
 There are multiple scrips in this repository
 
+- send_notes: This service monitors a PostgreSQL database table for scheduled Nostr notes and sends them to specified relays at the scheduled time.
+
 - vanilla_30312: This script posts 30312 room open and closes for the hivetalksfu server.
 It will only post for rooms that are opened with a pubkey moderator. 
 
