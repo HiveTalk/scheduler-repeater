@@ -99,8 +99,10 @@ The above Hivetalk Vanilla API data should be reformatted and sent to the Relay 
 
 ## Publishing to two relays
 
+NO spaces between relays for the RELAY_URLS
+
 ```sh
-export RELAY_URLS='wss://honey.nostr1.com','wss://hivetalk.nostr1.com'
+export RELAY_URLS="wss://honey.nostr1.com,wss://hivetalk.nostr1.com"
 export NOSTR_PVT_KEY='private-key-for-nostr-bot'
 ```
 
