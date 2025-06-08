@@ -20,5 +20,3 @@ The script will then publish a 30312 event for each room, with the following tag
 - relays tag
 
 to the relays listed in the `RELAY_URLS` environment variable, using the private key listed in the `NOSTR_PVT_KEY` environment variable.
-
-If there is a DISCORD_URL environment variable, the script will also send a message to this discord webhook in the same way as the discord/nostr_listener.go code does, but include a delay if there are too many messages to send to webhook in order to prevent throttling by discord.
