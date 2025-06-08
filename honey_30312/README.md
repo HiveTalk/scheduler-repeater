@@ -20,3 +20,11 @@ The script will then publish a 30312 event for each room, with the following tag
 - relays tag
 
 to the relays listed in the `RELAY_URLS` environment variable, using the private key listed in the `NOSTR_PVT_KEY` environment variable.
+
+To run the script, use the following command:
+
+```bash
+
+go run hivetalk_poller.go
+
+```
