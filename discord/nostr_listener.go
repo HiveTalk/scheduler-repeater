@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,10 +15,73 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
+	"golang.org/x/time/rate"
 )
 
 type DiscordWebhookMessage struct {
 	Content string `json:"content"`
+}
+
+// Global rate limiter for Discord webhooks
+var discordLimiter = rate.NewLimiter(rate.Every(time.Second/5), 1) // 5 requests per second max
+
+// Maximum Discord message size
+const maxDiscordMessageSize = 2000
+
+// loadEnv loads environment variables from .env file
+func loadEnv() {
+	envFile := ".env"
+	file, err := os.Open(envFile)
+	if err != nil {
+		// If .env file doesn't exist, just return without error
+		if os.IsNotExist(err) {
+			return
+		}
+		log.Printf("Warning: Error opening .env file: %v", err)
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Skip empty lines and comments
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse KEY=VALUE format
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		// Remove quotes if present
+		if len(value) > 1 && (strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'")) ||
+			(strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")) {
+			value = value[1 : len(value)-1]
+		}
+
+		// Only set if not already in environment
+		if _, exists := os.LookupEnv(key); !exists {
+			os.Setenv(key, value)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("Warning: Error reading .env file: %v", err)
+	}
+}
+
+func truncateMessage(message string, maxSize int) string {
+	if len(message) <= maxSize {
+		return message
+	}
+	// Keep some room for the truncation notice
+	return message[:maxSize-50] + "\n... [message truncated due to Discord size limits]"
 }
 
 func listenToNostrEvents() {
@@ -65,11 +129,43 @@ func listenToNostrEvents() {
 		for event := range sub.Events {
 			log.Printf("Received NIP-53 event with ID: %s, Kind: %d", event.ID, event.Kind)
 
-			// Create Discord message
-			message := DiscordWebhookMessage{
-				Content: formatNostrMessage(event, nil) + "\n\n**Original Event JSON:**\n```json\n" + prettyJSON(event) + "\n```",
+			// Format the message first
+			formattedMsg := formatNostrMessage(event, nil)
+			// Check if adding the full JSON would exceed the limit
+			// omit jsonPart for now
+			//jsonPart := "\n\n**Original Event JSON:**\n```json\n" + prettyJSON(event) + "\n```"
+			fullMsg := formattedMsg //+ jsonPart
+			// If the full message is too long, truncate the JSON part or omit it
+			if len(fullMsg) > maxDiscordMessageSize {
+				if len(formattedMsg) > maxDiscordMessageSize {
+					// Even the formatted message is too long
+					formattedMsg = truncateMessage(formattedMsg, maxDiscordMessageSize)
+					fullMsg = formattedMsg
+				} else {
+					// Try to include a truncated JSON
+					remaining := maxDiscordMessageSize - len(formattedMsg) - 50 // 50 chars for wrapper and truncation notice
+					if remaining > 100 { // Only include JSON if we have reasonable space
+						truncatedJSON := prettyJSON(event)
+						if len(truncatedJSON) > remaining {
+							truncatedJSON = truncatedJSON[:remaining] + "...\n[truncated]"
+						}
+						fullMsg = formattedMsg + "\n\n**Original Event JSON (truncated):**\n```json\n" + truncatedJSON + "\n```"
+					} else {
+						// Not enough space for JSON
+						fullMsg = formattedMsg + "\n\n*Event JSON omitted due to size constraints*"
+					}
+				}
 			}
 
+			// Create Discord message
+			message := DiscordWebhookMessage{
+				Content: fullMsg,
+			}
+
+			// Wait for rate limiter before sending
+			if err := discordLimiter.Wait(ctx); err != nil {
+				log.Printf("Rate limiter error: %v", err)
+			}
 			// Send to Discord with retries
 			for retries := 0; retries < 3; retries++ {
 				if err := sendToDiscord(discordWebhook, message); err != nil {
@@ -228,5 +324,7 @@ func sendToDiscord(webhookURL string, message DiscordWebhookMessage) error {
 
 func main() {
 	log.Println("Starting Nostr event listener...")
+	// Load environment variables from .env file
+	loadEnv()
 	listenToNostrEvents()
 }

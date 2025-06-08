@@ -2,7 +2,10 @@ module github.com/bitcarrot/hivetalk/scheduler/discord
 
 go 1.21
 
-require github.com/nbd-wtf/go-nostr v0.27.5
+require (
+	github.com/nbd-wtf/go-nostr v0.27.5
+	golang.org/x/time v0.3.0
+)
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
