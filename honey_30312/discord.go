@@ -183,14 +183,7 @@ func sendRoomBatch(ctx context.Context, webhookURL string, rooms []Room, status 
 	// Send each batch
 	for _, batch := range batches {
 		var message string
-		
 		message = ""
-		// Add header based on status
-		// if status == "open" {
-		// 	message = "🟢 New Open Rooms\n\n"
-		// } else {
-		// 	message = "🔴 Recently Closed Rooms\n\n"
-		// }
 		
 		// Add each room to the message
 		for _, room := range batch {
