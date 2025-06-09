@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -35,6 +36,7 @@ type RoomDatabase struct {
 
 type RoomInfo struct {
 	DTag      string    `json:"d_tag"`
+	RoomName  string    `json:"room_name"`
 	Status    string    `json:"status"`
 	LastSeen  time.Time `json:"last_seen"`
 }
@@ -101,6 +103,7 @@ func (db *RoomDatabase) getDTag(roomID string) string {
 	dTag := generateDTag()
 	db.Rooms[roomID] = RoomInfo{
 		DTag:     dTag,
+		RoomName: "Unknown Room", // Default room name
 		Status:   "unknown",
 		LastSeen: time.Time{},
 	}
@@ -110,12 +113,29 @@ func (db *RoomDatabase) getDTag(roomID string) string {
 	return dTag
 }
 
+// Helper function to get room name from the database for use in discord.go
+func getRoomInfoFromDatabase(roomID string) string {
+	// Load the database
+	db, err := loadRoomDatabase("honey_rooms.json")
+	if err != nil {
+		return ""
+	}
+
+	// Get the room name
+	if info, exists := db.Rooms[roomID]; exists && info.RoomName != "" {
+		return info.RoomName
+	}
+
+	return ""
+}
+
 // Update the status of a room
-func (db *RoomDatabase) updateRoomStatus(roomID, status string) bool {
+func (db *RoomDatabase) updateRoomStatus(roomID, roomName, status string) bool {
 	info, exists := db.Rooms[roomID]
 	if !exists {
 		info = RoomInfo{
 			DTag:     db.getDTag(roomID),
+			RoomName: roomName,
 			Status:   status,
 			LastSeen: time.Now(),
 		}
@@ -126,14 +146,15 @@ func (db *RoomDatabase) updateRoomStatus(roomID, status string) bool {
 		return true // Status changed
 	}
 
-	if info.Status != status {
+	if info.Status != status || info.RoomName != roomName {
 		info.Status = status
+		info.RoomName = roomName
 		info.LastSeen = time.Now()
 		db.Rooms[roomID] = info
 		if err := db.save(); err != nil {
 			log.Printf("Error saving room database after updating status for room %s: %v", roomID, err)
 		}
-		return true // Status changed
+		return true // Status or room name changed
 	}
 
 	// Update last seen time
@@ -160,7 +181,14 @@ func (db *RoomDatabase) checkClosedRooms(activeRoomIDs []string) []string {
 		if info.Status == "open" && !activeRoomMap[roomID] {
 			// Room is no longer active
 			closedRooms = append(closedRooms, roomID)
-			db.updateRoomStatus(roomID, "closed")
+			// For closed rooms, use the stored room name if available, otherwise use "Closed Room"
+			roomName := "Closed Room"
+			if info, exists := db.Rooms[roomID]; exists && info.RoomName != "" {
+				roomName = info.RoomName
+			}
+			if db.updateRoomStatus(roomID, roomName, "closed") {
+				log.Printf("Room %s marked as closed", roomID)
+			}
 		}
 	}
 
@@ -204,7 +232,7 @@ func fetchRooms(baseURL string) ([]Room, error) {
 }
 
 // Create and publish a 30312 event
-func publishEvent(ctx context.Context, privateKey, roomID, dTag, status, summary, imageURL, serviceURL string, relayURLs []string) error {
+func publishEvent(ctx context.Context, privateKey, roomID, roomName, dTag, status, summary, imageURL, serviceURL string, relayURLs []string) error {
 	log.Printf("Publishing %s event for room %s with dTag %s", status, roomID, dTag)
 	
 	// Get public key from private key
@@ -217,7 +245,7 @@ func publishEvent(ctx context.Context, privateKey, roomID, dTag, status, summary
 	// Create event tags
 	tags := nostr.Tags{
 		nostr.Tag{"d", dTag},
-		nostr.Tag{"room", roomID},
+		nostr.Tag{"room", roomName}, // Use room name for the room tag
 		nostr.Tag{"summary", summary},
 		nostr.Tag{"status", status},
 		nostr.Tag{"image", imageURL},
@@ -291,10 +319,16 @@ func main() {
 	baseURL := os.Getenv("BASE_URL")
 	privateKey := os.Getenv("NOSTR_PVT_KEY")
 	relayURLsStr := os.Getenv("RELAY_URLS")
+	discordURL := os.Getenv("DISCORD_URL")
 
 	// Validate environment variables
 	if baseURL == "" || privateKey == "" || relayURLsStr == "" {
 		log.Fatalf("Missing required environment variables. Please check your .env file.")
+	}
+
+	// Log if Discord integration is enabled
+	if discordURL != "" {
+		log.Printf("Discord integration enabled")
 	}
 	log.Printf("Using base URL: %s", baseURL)
 	log.Printf("Relay URLs: %s", relayURLsStr)
@@ -343,6 +377,9 @@ func main() {
 
 		activeRoomIDs := []string{}
 
+		// Track status changes for Discord notifications
+		statusChanges := make(map[string]string)
+
 		// Process each room
 		for _, room := range rooms {
 			log.Printf("Processing room: %s - %s with %d participants", room.Sid, room.Name, room.NumParticipants)
@@ -362,22 +399,31 @@ func main() {
 				roomStatus = "closed"
 				log.Printf("Room %s has 0 participants, marking as closed", room.Sid)
 			}
-			statusChanged := db.updateRoomStatus(room.Sid, roomStatus)
+			statusChanged := db.updateRoomStatus(room.Sid, room.Name, roomStatus)
+
+			// Track status changes for Discord notifications
+			if statusChanged {
+				statusChanges[room.Sid] = roomStatus
+			}
 
 			// Publish event if status changed
 			if statusChanged {
 				log.Printf("Room %s status changed to %s, publishing event", room.Sid, roomStatus)
 				
-				// Construct service URL
-				serviceURL := fmt.Sprintf("https://honey.hivetalk.org/join/%s", room.Sid)
+				// Construct service URL using room name
+				serviceURL := fmt.Sprintf("https://honey.hivetalk.org/meet/%s", url.PathEscape(room.Name))
 
-				// Handle optional fields
+				// Use description for summary tag and name for room tag
+				// Default summary to room name if description is nil
 				summary := room.Name
 				imageURL := ""
+				if room.Description != nil {
+					summary = *room.Description
+				}
 				if room.PictureUrl != nil {
 					imageURL = *room.PictureUrl
 				}
-				if err := publishEvent(ctx, privateKey, room.Sid, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
+				if err := publishEvent(ctx, privateKey, room.Sid, room.Name, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
 					log.Printf("Error publishing event for room %s: %v", room.Sid, err)
 				}
 			} else {
@@ -391,11 +437,29 @@ func main() {
 		for _, roomID := range closedRooms {
 			dTag := db.getDTag(roomID)
 			log.Printf("Room %s closed, publishing closed event with dTag %s", roomID, dTag)
+
+			// Track status changes for Discord notifications
+			statusChanges[roomID] = "closed"
+
+			// For closed rooms, get the stored room name from the database
+			roomName := "Unknown Room"
+			if info, exists := db.Rooms[roomID]; exists && info.RoomName != "" {
+				roomName = info.RoomName
+			}
+
+			// Use the actual room name for the event
+			serviceURL := fmt.Sprintf("https://honey.hivetalk.org/meet/%s", url.PathEscape(roomName))
+			summary := fmt.Sprintf("%s is now closed", roomName)
 			
-			// For closed rooms, we don't have the room details anymore, so use generic values
-			if err := publishEvent(ctx, privateKey, roomID, dTag, "closed", "Closed Room", "", "", relayURLs); err != nil {
+			if err := publishEvent(ctx, privateKey, roomID, roomName, dTag, "closed", summary, "", serviceURL, relayURLs); err != nil {
 				log.Printf("Error publishing closed event for room %s: %v", roomID, err)
 			}
+		}
+
+		// Send updates to Discord if enabled
+		if discordURL != "" && len(statusChanges) > 0 {
+			log.Printf("Sending %d room updates to Discord", len(statusChanges))
+			SendRoomUpdatesToDiscord(ctx, discordURL, rooms, statusChanges)
 		}
 
 		log.Printf("Sleeping for %v before next poll", interval)
