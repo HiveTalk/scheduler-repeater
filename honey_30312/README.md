@@ -61,6 +61,12 @@ To run the script directly:
 go run honey_poller.go
 ```
 
+or build it:
+
+```bash
+go build -o honey_poller
+```
+
 Or use the compiled binary:
 
 ```bash
