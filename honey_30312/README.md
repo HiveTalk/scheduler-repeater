@@ -7,7 +7,20 @@ This script polls the HiveTalk API endpoint every 60 seconds to track room statu
 The poller fetches room data from the BASE_URL endpoint, which returns data in this format:
 
 ```json
-[{"name":"Hive Room","sid":"RM_v4HsDDo2H4Rd","createdAt":"2025-06-08T02:51:09Z","numParticipants":1,"description":"People who work on Hivetalk","pictureUrl":"https://honey.hivetalk.org/_image?href=%2F_astro%2Fhivetalkbg2.CXhLVsIP.png","status":"open"}]
+[
+   {"name":"Hive Room",
+   "sid":"RM_Dtf94cmbiJPu",
+   "createdAt":"2025-06-09T04:32:04Z",
+   "numParticipants":1,
+   "description":"People who work on Hivetalk ",
+   "pictureUrl":"https://honey.hivetalk.org/_image?href=%2F_astro%2Fhivetalkbg2.CXhLVsIP.png","status":"open"},
+
+   {"name":"Witty-Hawk-43",
+   "sid":"RM_bEuLoJEtkEER",
+   "createdAt":"2025-06-09T04:32:07Z",
+   "numParticipants":1
+   }
+]
 ```
 
 When room status changes are detected, the script can:
