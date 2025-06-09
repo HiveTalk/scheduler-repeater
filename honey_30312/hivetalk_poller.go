@@ -18,13 +18,13 @@ import (
 
 // HiveTalk API response structure for Honey
 type Room struct {
-	Name            string    `json:"name"`
-	Sid             string    `json:"sid"`
-	CreatedAt       time.Time `json:"createdAt"`
-	NumParticipants int       `json:"numParticipants"`
-	Description     string    `json:"description"`
-	PictureUrl      string    `json:"pictureUrl"`
-	Status          string    `json:"status"`
+	Name            string     `json:"name"`
+	Sid             string     `json:"sid"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	NumParticipants int        `json:"numParticipants"`
+	Description     *string    `json:"description,omitempty"`
+	PictureUrl      *string    `json:"pictureUrl,omitempty"`
+	Status          *string    `json:"status,omitempty"`
 }
 
 // Simple database to track rooms and their status
@@ -352,25 +352,40 @@ func main() {
 			dTag := db.getDTag(room.Sid)
 			log.Printf("Using dTag %s for room %s", dTag, room.Sid)
 
-			// Update room status
-			statusChanged := db.updateRoomStatus(room.Sid, room.Status)
+			// Determine room status
+			roomStatus := "open"
+			// If status is explicitly set, use it
+			if room.Status != nil {
+				roomStatus = *room.Status
+			} else if room.NumParticipants == 0 {
+				// If no participants, treat as closed
+				roomStatus = "closed"
+				log.Printf("Room %s has 0 participants, marking as closed", room.Sid)
+			}
+			statusChanged := db.updateRoomStatus(room.Sid, roomStatus)
 
 			// Publish event if status changed
 			if statusChanged {
-				log.Printf("Room %s status changed to %s, publishing event", room.Sid, room.Status)
+				log.Printf("Room %s status changed to %s, publishing event", room.Sid, roomStatus)
 				
 				// Construct service URL
 				serviceURL := fmt.Sprintf("https://honey.hivetalk.org/join/%s", room.Sid)
-				
-				if err := publishEvent(ctx, privateKey, room.Sid, dTag, room.Status, room.Name, room.PictureUrl, serviceURL, relayURLs); err != nil {
+
+				// Handle optional fields
+				summary := room.Name
+				imageURL := ""
+				if room.PictureUrl != nil {
+					imageURL = *room.PictureUrl
+				}
+				if err := publishEvent(ctx, privateKey, room.Sid, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
 					log.Printf("Error publishing event for room %s: %v", room.Sid, err)
 				}
 			} else {
-				log.Printf("Room %s already %s, no event published", room.Sid, room.Status)
+				log.Printf("Room %s already %s, no event published", room.Sid, roomStatus)
 			}
 		}
 
-		// Check for closed rooms
+		// Check for rooms that are no longer in the API response
 		closedRooms := db.checkClosedRooms(activeRoomIDs)
 		log.Printf("Found %d closed rooms", len(closedRooms))
 		for _, roomID := range closedRooms {
