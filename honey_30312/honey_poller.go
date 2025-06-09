@@ -321,31 +321,46 @@ func main() {
 	relayURLsStr := os.Getenv("RELAY_URLS")
 	discordURL := os.Getenv("DISCORD_URL")
 
-	// Validate environment variables
-	if baseURL == "" || privateKey == "" || relayURLsStr == "" {
-		log.Fatalf("Missing required environment variables. Please check your .env file.")
+	// Validate required environment variables
+	if baseURL == "" {
+		log.Fatalf("Missing BASE_URL environment variable. Please check your .env file.")
 	}
 
-	// Log if Discord integration is enabled
+	// Check if Nostr integration is enabled
+	nostrEnabled := privateKey != "" && relayURLsStr != ""
+	if !nostrEnabled {
+		log.Println("Nostr integration disabled - missing NOSTR_PVT_KEY or RELAY_URLS")
+	}
+
+	// Log integration status
+	log.Printf("Using base URL: %s", baseURL)
+
 	if discordURL != "" {
 		log.Printf("Discord integration enabled")
 	}
-	log.Printf("Using base URL: %s", baseURL)
-	log.Printf("Relay URLs: %s", relayURLsStr)
 
-	// Parse relay URLs
+	if nostrEnabled {
+		log.Printf("Nostr integration enabled")
+		log.Printf("Relay URLs: %s", relayURLsStr)
+	}
+
+	// Parse relay URLs if Nostr is enabled
 	relayURLs := []string{}
-	for _, url := range strings.Split(relayURLsStr, ",") {
-		url = strings.TrimSpace(url)
-		if url != "" {
-			relayURLs = append(relayURLs, url)
+	if nostrEnabled {
+		for _, url := range strings.Split(relayURLsStr, ",") {
+			url = strings.TrimSpace(url)
+			if url != "" {
+				relayURLs = append(relayURLs, url)
+			}
+		}
+
+		if len(relayURLs) == 0 {
+			log.Println("Warning: No valid relay URLs found. Nostr publishing will be disabled.")
+			nostrEnabled = false
+		} else {
+			log.Printf("Found %d relay URLs", len(relayURLs))
 		}
 	}
-
-	if len(relayURLs) == 0 {
-		log.Fatalf("No relay URLs found. Please check your RELAY_URLS environment variable.")
-	}
-	log.Printf("Found %d relay URLs", len(relayURLs))
 
 	// Load or create the room database
 	db, err := loadRoomDatabase("honey_rooms.json")
@@ -406,10 +421,10 @@ func main() {
 				statusChanges[room.Sid] = roomStatus
 			}
 
-			// Publish event if status changed
+			// Publish event if status changed and Nostr is enabled
 			if statusChanged {
-				log.Printf("Room %s status changed to %s, publishing event", room.Sid, roomStatus)
-				
+				log.Printf("Room %s status changed to %s", room.Sid, roomStatus)
+
 				// Construct service URL using room name
 				serviceURL := fmt.Sprintf("https://honey.hivetalk.org/meet/%s", url.PathEscape(room.Name))
 
@@ -423,8 +438,13 @@ func main() {
 				if room.PictureUrl != nil {
 					imageURL = *room.PictureUrl
 				}
-				if err := publishEvent(ctx, privateKey, room.Sid, room.Name, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
-					log.Printf("Error publishing event for room %s: %v", room.Sid, err)
+
+				// Only publish to Nostr if enabled
+				if nostrEnabled {
+					log.Printf("Publishing event for room %s", room.Sid)
+					if err := publishEvent(ctx, privateKey, room.Sid, room.Name, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
+						log.Printf("Error publishing event for room %s: %v", room.Sid, err)
+					}
 				}
 			} else {
 				log.Printf("Room %s already %s, no event published", room.Sid, roomStatus)
@@ -451,8 +471,12 @@ func main() {
 			serviceURL := fmt.Sprintf("https://honey.hivetalk.org/meet/%s", url.PathEscape(roomName))
 			summary := fmt.Sprintf("%s is now closed", roomName)
 			
-			if err := publishEvent(ctx, privateKey, roomID, roomName, dTag, "closed", summary, "", serviceURL, relayURLs); err != nil {
-				log.Printf("Error publishing closed event for room %s: %v", roomID, err)
+			// Only publish to Nostr if enabled
+			if nostrEnabled {
+				log.Printf("Publishing closed event for room %s", roomID)
+				if err := publishEvent(ctx, privateKey, roomID, roomName, dTag, "closed", summary, "", serviceURL, relayURLs); err != nil {
+					log.Printf("Error publishing closed event for room %s: %v", roomID, err)
+				}
 			}
 		}
 
