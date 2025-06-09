@@ -23,6 +23,16 @@ The poller fetches room data from the BASE_URL endpoint, which returns data in t
 ]
 ```
 
+## NOTE
+
+Ephemeral rooms do have a description, status or pictureUrl.
+These rooms are automatically broadcast by this this script to the relays.
+
+Permanent rooms do have these values.
+These rooms are manually broadcast by the user using the HiveTalk app and are not currently broadcast to relays.
+We may need to add support for this in the future.
+
+
 When room status changes are detected, the script can:
 
 1. **Publish Nostr Events**: Creates and publishes NIP-30312 events with the following tags:
