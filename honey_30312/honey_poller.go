@@ -431,7 +431,7 @@ func main() {
 				// Use description for summary tag and name for room tag
 				// Default summary to room name if description is nil
 				summary := room.Name
-				imageURL := ""
+				imageURL := "https://honey.hivetalk.org/logo.png"
 				if room.Description != nil {
 					summary = *room.Description
 				}
