@@ -1,4 +1,4 @@
-# Hivetalk backend-scheduler
+# Hivetalk backend Repeater
 
 There are multiple scrips in this repository
 
