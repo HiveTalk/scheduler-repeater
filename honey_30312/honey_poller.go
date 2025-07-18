@@ -439,17 +439,23 @@ func main() {
 					imageURL = *room.PictureUrl
 				}
 
+				// publish everything both ephemeral and permanent rooms to all relays for rebroadcast
+				log.Printf("Publishing event for room %s", room.Sid)
+				if err := publishEvent(ctx, privateKey, room.Sid, room.Name, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
+					log.Printf("Error publishing event for room %s: %v", room.Sid, err)
+				}
+
 				// Only publish to Nostr if enabled AND the room doesn't already have a status field with a value
 				// If the room has a status field with a value, it means the data is already being published elsewhere
-				hasStatus := room.Status != nil && *room.Status != ""
-				if nostrEnabled && !hasStatus {
-					log.Printf("Publishing event for room %s", room.Sid)
-					if err := publishEvent(ctx, privateKey, room.Sid, room.Name, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
-						log.Printf("Error publishing event for room %s: %v", room.Sid, err)
-					}
-				} else if room.Status != nil && *room.Status != "" {
-					log.Printf("Skipping Nostr publishing for room %s as it already has a status field: %s", room.Sid, *room.Status)
-				}
+				// hasStatus := room.Status != nil && *room.Status != ""
+				// if nostrEnabled && !hasStatus {
+				// 	log.Printf("Publishing event for room %s", room.Sid)
+				// 	if err := publishEvent(ctx, privateKey, room.Sid, room.Name, dTag, roomStatus, summary, imageURL, serviceURL, relayURLs); err != nil {
+				// 		log.Printf("Error publishing event for room %s: %v", room.Sid, err)
+				// 	}
+				// } else if room.Status != nil && *room.Status != "" {
+				// 	log.Printf("Skipping Nostr publishing for room %s as it already has a status field: %s", room.Sid, *room.Status)
+				// }
 			} else {
 				log.Printf("Room %s already %s, no event published", room.Sid, roomStatus)
 			}
