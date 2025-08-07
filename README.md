@@ -7,7 +7,7 @@ It will only post for rooms that are opened with a pubkey moderator.
 
 - honey_30312: while honey automatically publishes to at least two relays, this script also possts 30312 events to bigger relays, for all rooms open and closes. 
 
-- Discord: This script posts 30311, 30312, 30313 events sent to select nostr relays to discord dev channels. 
+- Discord: This script posts 30311, 30312, 30313 events sent to select nostr relays to discord channels. 
 - send_notes: This service monitors a PostgreSQL database table for scheduled Nostr notes and sends them to specified relays at the scheduled time.
 
 
