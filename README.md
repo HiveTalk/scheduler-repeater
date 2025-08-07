@@ -7,7 +7,7 @@ There are multiple scrips in this repository
 - vanilla_30312: This script posts 30312 room open and closes for the hivetalksfu server.
 It will only post for rooms that are opened with a pubkey moderator. 
 
-- honey_30312: also possts 30312 events to bigger relays for honey, for all rooms open and closes. 
+- honey_30312: while honey automatically publishes to at least two relays, this script also possts 30312 events to bigger relays, for all rooms open and closes. 
 
 - Discord: This script posts 30311, 30312, 30313 events sent to select nostr relays to discord dev channels. 
 
