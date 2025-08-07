@@ -11,17 +11,6 @@ It will only post for rooms that are opened with a pubkey moderator.
 - send_notes: This service monitors a PostgreSQL database table for scheduled Nostr notes and sends them to specified relays at the scheduled time.
 
 
-## Future plans
-
-If detailed logging needed, we structure a table for addiitonal status.
-
-On success, db entry will be marked as such and 
-not be sent again if the row is selected in next poll. 
-
-If retry is required, on next poll we will attempt. 
-
-If send is failed, it will be marked as failed. 
-
 # service file
 in /etc/systemd/system/scheduler.service
 
